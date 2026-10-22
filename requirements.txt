@@ -1,0 +1,4 @@
+Django>=5.1,<6.2
+mysqlclient>=2.2.0
+python-dotenv>=1.0.0
+
