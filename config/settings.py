@@ -21,8 +21,13 @@ else:
     load_dotenv(override=True)
 
 # Security: Read secrets from environment variables (SAD Section 3.9)
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-electronics-store-key-2026')
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+
+SECRET_KEY = os.environ.get('SECRET_KEY')
+
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable must be set.")
 
 raw_allowed_hosts = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1')
 ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts.split(',') if h.strip()]
