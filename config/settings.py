@@ -22,7 +22,8 @@ else:
 
 # Security: Read secrets from environment variables (SAD Section 3.9)
 
-DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+debug_val = os.getenv('DEBUG', 'False')
+DEBUG = str(debug_val).lower() in ('true', '1', 'yes')
 
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
@@ -148,13 +149,27 @@ CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# Cache Configuration (Used for login rate-limiting per SAD 3.9 & SRS AC-SR-006)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'electronics-auth-cache',
+# Cache Configuration (Used for login rate‑limiting per SAD 3.9 & SRS AC‑SR‑006)
+# Use a shared cache backend (e.g., Redis) in production via CACHE_URL.
+# Fallback to LocMemCache for local development when CACHE_URL is not set.
+CACHE_URL = os.getenv('CACHE_URL')
+# In production (DEBUG=False) the shared cache is mandatory.
+if not CACHE_URL and not DEBUG and not is_testing:
+    raise ValueError("CACHE_URL must be set in production (DEBUG=False) for shared cache.")
+if CACHE_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': CACHE_URL,
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'electronics-auth-cache',
+        }
+    }
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'

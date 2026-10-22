@@ -46,6 +46,7 @@ class LoginForm(AuthenticationForm):
 
         if username:
             cache_key = self._get_rate_limit_key(username)
+            # Check current count (may be missing)
             failed_attempts = cache.get(cache_key, 0)
             if failed_attempts >= MAX_FAILED_ATTEMPTS:
                 raise ValidationError(
@@ -55,16 +56,17 @@ class LoginForm(AuthenticationForm):
 
         try:
             cleaned = super().clean()
-            # On successful authentication, reset the failed attempt counter
+            # Successful authentication -> reset counter
             if username:
                 cache.delete(cache_key)
             return cleaned
         except ValidationError as e:
-            # On failed authentication, increment rate limit counter
+            # Increment only on invalid credentials
             if username and 'invalid_login' in [getattr(err, 'code', None) for err in e.error_list]:
                 cache_key = self._get_rate_limit_key(username)
-                failed_attempts = cache.get(cache_key, 0) + 1
-                cache.set(cache_key, failed_attempts, timeout=LOCKOUT_DURATION_SECONDS)
+                # Ensure the key exists with the correct expiry. `add` only sets if missing.
+                cache.add(cache_key, 0, timeout=LOCKOUT_DURATION_SECONDS)
+                failed_attempts = cache.incr(cache_key)
                 if failed_attempts >= MAX_FAILED_ATTEMPTS:
                     raise ValidationError(
                         "Too many failed login attempts. For security reasons, please try again after 15 minutes.",
