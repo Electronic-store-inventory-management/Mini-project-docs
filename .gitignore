@@ -1,25 +1,37 @@
+
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
 
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
 env/
 
-# Local database
-db.sqlite3
-db.sqlite3-journal
-
-# Secrets
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
 
-# Django generated files
-staticfiles/
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
 media/
 
-# Editors
+# Test and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# IDE and editor
 .vscode/
 .idea/
+
+# OS-generated files
+.DS_Store
+Thumbs.db

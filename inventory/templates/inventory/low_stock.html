@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low-Stock Components</title>
+</head>
+<body>
+    <h1>Low-Stock Components</h1>
+
+    <p><a href="{% url 'inventory:availability' %}">View All Components</a></p>
+
+    <table border="1" cellpadding="10">
+        <thead>
+            <tr>
+                <th>Component ID</th>
+                <th>Name</th>
+                <th>Quantity</th>
+                <th>Minimum Stock</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for component in components %}
+            <tr>
+                <td>{{ component.component_id }}</td>
+                <td>{{ component.name }}</td>
+                <td>{{ component.quantity }}</td>
+                <td>{{ component.minimum_stock_level }}</td>
+                <td>{{ component.availability_status }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">No low-stock components found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
