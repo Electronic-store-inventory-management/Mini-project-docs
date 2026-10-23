@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Electronics Store Inventory System{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <nav class="navbar" aria-label="Main Navigation">
+            <a href="{% url 'inventory:landing' %}" class="navbar-brand">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <span>Electronics Inventory</span>
+            </a>
+
+            <ul class="navbar-nav">
+                {% if user.is_authenticated %}
+                    <li class="navbar-user">
+                        <span>Signed in as <strong>{{ user.username }}</strong></span>
+                        <span class="role-badge role-{{ user.role|lower }}">{{ user.get_role_display }}</span>
+                    </li>
+                    <li>
+                        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline" aria-label="Log out of application">Log Out</button>
+                        </form>
+                    </li>
+                {% else %}
+                    <li>
+                        <a href="{% url 'login' %}" class="btn btn-outline">Log In</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </header>
+
+    <main class="main-container">
+        {% if messages %}
+            <div class="messages-container" role="region" aria-label="Notifications">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="status">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Electronics Store Inventory Management System &bull; Layered Architecture (Django MVT)</p>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

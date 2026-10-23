@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventory Management Landing &bull; Electronics Store{% endblock %}
+
+{% block content %}
+<div class="landing-header">
+    <h1>Welcome, {{ user.username }}</h1>
+    <p>Electronics Store Inventory Management System &bull; Active Role: <strong>{{ user.get_role_display }}</strong></p>
+</div>
+
+<div class="card">
+    <div style="border-left: 4px solid var(--primary-color); padding-left: 1rem; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.25rem; color: var(--primary-color);">Authentication Verified</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">
+            You have successfully authenticated via Django's secure session mechanism. This protected landing page is restricted to authenticated store personnel.
+        </p>
+    </div>
+
+    <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 1.25rem; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-color);">Current User Profile &amp; Role Foundation</h3>
+        <ul style="list-style-type: none; font-size: 0.9rem; line-height: 1.8;">
+            <li><strong>User Account:</strong> {{ user.username }}</li>
+            <li><strong>Assigned Role:</strong> <span class="role-badge role-{{ user.role|lower }}">{{ user.get_role_display }}</span></li>
+            <li><strong>Account Status:</strong> {% if user.is_active %}<span style="color: var(--success-color); font-weight: 600;">Active</span>{% else %}<span style="color: var(--danger-color);">Inactive</span>{% endif %}</li>
+            <li><strong>Session Expiration:</strong> 30 minutes of inactivity (per SAD Section 3.9 &amp; SRS AC-SR-002)</li>
+        </ul>
+    </div>
+
+    <h3 style="font-size: 1.1rem; color: var(--text-color); margin-bottom: 0.75rem;">System Modules (SAD Section 4.1 Architecture)</h3>
+    <div class="grid-modules">
+        <div class="module-card">
+            <h3>Component Inventory</h3>
+            <p>Browse, search, and view electronic components (SKU, quantity, unit price, status).</p>
+            <span class="status-indicator">Protected &bull; Module US-02/US-03</span>
+        </div>
+
+        <div class="module-card">
+            <h3>Add Component</h3>
+            <p>Register new electronic components with unique SKU and reorder levels.</p>
+            <span class="status-indicator">Role-Restricted &bull; Module US-04</span>
+        </div>
+
+        <div class="module-card">
+            <h3>Availability Reports</h3>
+            <p>Generate stock availability classifications (In Stock, Low Stock, Out of Stock).</p>
+            <span class="status-indicator">Protected &bull; Module US-06</span>
+        </div>
+
+        <div class="module-card">
+            <h3>Monitoring Dashboard</h3>
+            <p>Stock overview, category distribution, and real-time low-stock alerts.</p>
+            <span class="status-indicator">Protected &bull; Module US-07</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
