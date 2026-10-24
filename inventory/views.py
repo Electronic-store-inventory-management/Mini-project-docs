@@ -1,3 +1,4 @@
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import F
 from django.shortcuts import render
@@ -55,6 +56,21 @@ def low_stock(request):
         "inventory/low_stock.html",
         {
             "page_title": "Low-Stock Components",
+            "components": components,
+        },
+    )
+
+
+@login_required
+def out_of_stock(request):
+    """US-09: Identify components with zero available quantity."""
+    components = Component.objects.filter(quantity=0)
+
+    return render(
+        request,
+        "inventory/out_of_stock.html",
+        {
+            "page_title": "Out-of-Stock Components",
             "components": components,
         },
     )
