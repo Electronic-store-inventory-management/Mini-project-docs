@@ -1,6 +1,6 @@
 
 from django.urls import path
-from .views import landing_page, component_list, availability, low_stock
+from .views import landing_page, component_list, availability, low_stock, out_of_stock
 
 app_name = "inventory"
 
@@ -9,4 +9,5 @@ urlpatterns = [
     path("components/", component_list, name="component-list"),
     path("availability/", availability, name="availability"),
     path("low-stock/", low_stock, name="low_stock"),
+    path("out-of-stock/", out_of_stock, name="out_of_stock"),
 ]
