@@ -1,4 +1,4 @@
-﻿from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
@@ -51,14 +51,28 @@ class ComponentListViewTests(TestCase):
         self.assertContains(response, str(component.quantity))
 
 
-class ComponentAvailabilityAndLowStockTests(TestCase):
+class ComponentAddTests(TestCase):
+
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(
-            username="availability_staff",
+            username="add_staff",
             password="SecurePass123!",
         )
 
+        # Existing component for the duplicate-ID test
+        cls.existing = Component.objects.create(
+            component_id="DUP001",
+            name="Existing Resistor",
+            category="Passive",
+            manufacturer="Existing Manufacturer",
+            quantity=10,
+            unit_price="0.20",
+            supplier="Existing Supplier",
+            minimum_stock_level=5,
+        )
+
+        # Component fixtures for availability and low-stock tests
         cls.available = Component.objects.create(
             component_id="AV001",
             name="Available Capacitor",
@@ -102,6 +116,88 @@ class ComponentAvailabilityAndLowStockTests(TestCase):
             supplier="Test Supplier",
             minimum_stock_level=5,
         )
+
+    def test_add_component_unauthenticated_redirect(self):
+        response = self.client.get(reverse("inventory:component-add"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+
+    def test_add_component_get_shows_form(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("inventory:component-add"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<form")
+        self.assertContains(response, "name=\"component_id\"")
+
+    def test_add_component_valid_post_creates(self):
+        self.client.force_login(self.user)
+        post_data = {
+            "component_id": "NEW001",
+            "name": "New Capacitor",
+            "category": "Passive",
+            "manufacturer": "New Manufacturer",
+            "quantity": 50,
+            "unit_price": "0.50",
+            "supplier": "New Supplier",
+            "minimum_stock_level": 5,
+        }
+        response = self.client.post(reverse("inventory:component-add"), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Component.objects.filter(component_id="NEW001").exists())
+        self.assertContains(response, "Component added successfully")
+
+    def test_add_component_duplicate_id(self):
+        self.client.force_login(self.user)
+        post_data = {
+            "component_id": "DUP001",  # same as existing
+            "name": "Dup Capacitor",
+            "category": "Passive",
+            "manufacturer": "Dup Manufacturer",
+            "quantity": 20,
+            "unit_price": "0.30",
+            "supplier": "Dup Supplier",
+            "minimum_stock_level": 5,
+        }
+        response = self.client.post(reverse("inventory:component-add"), post_data)
+        self.assertEqual(response.status_code, 200)
+        # Should not create a second record
+        self.assertEqual(Component.objects.filter(component_id="DUP001").count(), 1)
+        self.assertContains(response, "Component with this Component Id already exists")
+
+    def test_add_component_negative_quantity(self):
+        self.client.force_login(self.user)
+        post_data = {
+            "component_id": "NEG001",
+            "name": "Neg Qty",
+            "category": "Passive",
+            "manufacturer": "Neg Manufacturer",
+            "quantity": -5,
+            "unit_price": "0.10",
+            "supplier": "Neg Supplier",
+            "minimum_stock_level": 1,
+        }
+        response = self.client.post(reverse("inventory:component-add"), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Component.objects.filter(component_id="NEG001").exists())
+        self.assertContains(response, "Quantity cannot be negative")
+
+    def test_add_component_negative_price(self):
+        self.client.force_login(self.user)
+        post_data = {
+            "component_id": "NEGPRICE",
+            "name": "Neg Price",
+            "category": "Passive",
+            "manufacturer": "Neg Manufacturer",
+            "quantity": 10,
+            "unit_price": "-0.10",
+            "supplier": "Neg Supplier",
+            "minimum_stock_level": 1,
+        }
+        response = self.client.post(reverse("inventory:component-add"), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Component.objects.filter(component_id="NEGPRICE").exists())
+        self.assertContains(response, "Unit price cannot be negative")
+
 
     def test_availability_statuses(self):
         self.assertEqual(self.available.availability_status, "Available")
