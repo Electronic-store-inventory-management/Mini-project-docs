@@ -1,4 +1,3 @@
-
 from django.db import models
 
 
@@ -13,7 +12,6 @@ class Component(models.Model):
     minimum_stock_level = models.PositiveIntegerField(default=5)
 
     def get_availability_status(self):
-        """Return the stock status according to the project SRS."""
         if self.quantity == 0:
             return "Out of Stock"
         elif self.quantity <= self.minimum_stock_level:
@@ -37,3 +35,4 @@ class Component(models.Model):
 
     class Meta:
         ordering = ["name"]
+# Create your models here.
