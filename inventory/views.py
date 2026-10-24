@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError
 from django.db.models import F
 from django.shortcuts import render
 
@@ -68,16 +69,23 @@ def add_component(request):
         form = ComponentForm(request.POST)
 
         if form.is_valid():
-            form.save()
-            return render(
-                request,
-                "inventory/add_component.html",
-                {
-                    "page_title": "Add Component",
-                    "form": ComponentForm(),
-                    "success_message": "Component added successfully.",
-                },
-            )
+            try:
+                form.save()
+            except IntegrityError:
+                form.add_error(
+                    "component_id",
+                    "A component with this Component ID already exists.",
+                )
+            else:
+                return render(
+                    request,
+                    "inventory/add_component.html",
+                    {
+                        "page_title": "Add Component",
+                        "form": ComponentForm(),
+                        "success_message": "Component added successfully.",
+                    },
+                )
     else:
         form = ComponentForm()
 
