@@ -3,6 +3,7 @@ from django.db.models import F
 from django.shortcuts import render
 
 from .models import Component
+from .forms import ComponentForm
 
 
 @login_required
@@ -56,5 +57,35 @@ def low_stock(request):
         {
             "page_title": "Low-Stock Components",
             "components": components,
+        },
+    )
+
+
+
+@login_required
+def add_component(request):
+    if request.method == "POST":
+        form = ComponentForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return render(
+                request,
+                "inventory/add_component.html",
+                {
+                    "page_title": "Add Component",
+                    "form": ComponentForm(),
+                    "success_message": "Component added successfully.",
+                },
+            )
+    else:
+        form = ComponentForm()
+
+    return render(
+        request,
+        "inventory/add_component.html",
+        {
+            "page_title": "Add Component",
+            "form": form,
         },
     )
