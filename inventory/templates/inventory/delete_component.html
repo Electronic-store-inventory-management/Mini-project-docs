@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ page_title }}</title>
+</head>
+<body>
+
+    <h1>{{ page_title }}</h1>
+
+    {% if success_message %}
+        <p>{{ success_message }}</p>
+
+        <a href="{% url 'inventory:component-list' %}">
+            Back to Component Inventory
+        </a>
+
+    {% elif component %}
+        <p>
+            Are you sure you want to delete
+            <strong>{{ component.name }}</strong>
+            (Component ID: {{ component.component_id }})?
+        </p>
+
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit">Confirm Delete</button>
+        </form>
+
+        <a href="{% url 'inventory:component-list' %}">
+            Cancel
+        </a>
+    {% endif %}
+
+</body>
+</html>

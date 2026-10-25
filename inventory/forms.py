@@ -1,33 +1,32 @@
-'''Forms for the inventory app.
+
+"""Forms for the inventory app.
 
 Provides a ModelForm for adding a Component with validation.
-'''
+"""
 
 from django import forms
 from django.core.exceptions import ValidationError
+
 from .models import Component
 
 
 class ComponentForm(forms.ModelForm):
-    """Form for creating a new Component.
-
-    Validation rules:
-    * ``component_id`` must be unique (enforced by model).
-    * ``quantity`` and ``minimum_stock_level`` must be non‑negative integers.
-    * ``unit_price`` must be a non‑negative decimal.
-    """
-
+    """Form for creating a new Component."""
 
     quantity = forms.IntegerField(
         min_value=0,
         error_messages={"min_value": "Quantity cannot be negative"},
         widget=forms.NumberInput(attrs={"class": "form-control", "min": 0}),
     )
+
     unit_price = forms.DecimalField(
         min_value=0,
         error_messages={"min_value": "Unit price cannot be negative"},
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": 0}),
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "step": "0.01", "min": 0}
+        ),
     )
+
     minimum_stock_level = forms.IntegerField(
         min_value=0,
         error_messages={"min_value": "Minimum stock level cannot be negative"},
@@ -58,6 +57,16 @@ class ComponentForm(forms.ModelForm):
             },
         }
 
+    def clean_component_id(self):
+        component_id = self.cleaned_data["component_id"]
+
+        if Component.objects.filter(component_id=component_id).exists():
+            raise forms.ValidationError(
+                "A component with this Component ID already exists."
+            )
+
+        return component_id
+
     def clean_quantity(self):
         qty = self.cleaned_data.get("quantity")
         if qty is not None and qty < 0:
@@ -65,10 +74,10 @@ class ComponentForm(forms.ModelForm):
         return qty
 
     def clean_minimum_stock_level(self):
-        lvl = self.cleaned_data.get("minimum_stock_level")
-        if lvl is not None and lvl < 0:
+        level = self.cleaned_data.get("minimum_stock_level")
+        if level is not None and level < 0:
             raise ValidationError("Minimum stock level cannot be negative.")
-        return lvl
+        return level
 
     def clean_unit_price(self):
         price = self.cleaned_data.get("unit_price")
