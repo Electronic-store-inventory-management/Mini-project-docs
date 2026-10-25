@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from .forms import ComponentForm
 from .models import Component
 
 
@@ -166,3 +167,52 @@ class ComponentAvailabilityAndLowStockTests(TestCase):
         self.assertNotContains(response, "Available Capacitor")
         self.assertNotContains(response, "Low Stock Resistor")
         self.assertNotContains(response, "Minimum Stock Diode")
+
+
+class ComponentDuplicateIdTests(TestCase):
+    def test_duplicate_component_id_is_rejected(self):
+        Component.objects.create(
+            component_id="DUP001",
+            name="Existing Resistor",
+            category="Passive",
+            manufacturer="Test Manufacturer",
+            quantity=10,
+            unit_price="2.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        form = ComponentForm(
+            data={
+                "component_id": "DUP001",
+                "name": "Another Resistor",
+                "category": "Passive",
+                "manufacturer": "Another Manufacturer",
+                "quantity": 20,
+                "unit_price": "3.00",
+                "supplier": "Another Supplier",
+                "minimum_stock_level": 5,
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "A component with this Component ID already exists.",
+            form.errors["component_id"],
+        )
+
+    def test_unique_component_id_is_accepted(self):
+        form = ComponentForm(
+            data={
+                "component_id": "UNQ001",
+                "name": "Unique Resistor",
+                "category": "Passive",
+                "manufacturer": "Test Manufacturer",
+                "quantity": 10,
+                "unit_price": "2.00",
+                "supplier": "Test Supplier",
+                "minimum_stock_level": 5,
+            }
+        )
+
+        self.assertTrue(form.is_valid())
