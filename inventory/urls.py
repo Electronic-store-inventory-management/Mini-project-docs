@@ -7,6 +7,7 @@ from .views import (
     low_stock,
     add_component,
     out_of_stock,
+    delete_component,
 )
 
 app_name = "inventory"
@@ -18,4 +19,9 @@ urlpatterns = [
     path("low-stock/", low_stock, name="low_stock"),
     path("add/", add_component, name="add_component"),
     path("out-of-stock/", out_of_stock, name="out_of_stock"),
+    path(
+        "components/delete/<int:component_id>/",
+        delete_component,
+        name="delete_component",
+    ),
 ]

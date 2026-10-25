@@ -2,10 +2,10 @@
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.db.models import F
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
-from .models import Component
 from .forms import ComponentForm
+from .models import Component
 
 
 @login_required
@@ -110,5 +110,30 @@ def out_of_stock(request):
         {
             "page_title": "Out-of-Stock Components",
             "components": components,
+        },
+    )
+
+
+@login_required
+def delete_component(request, component_id):
+    component = get_object_or_404(Component, id=component_id)
+
+    if request.method == "POST":
+        component.delete()
+        return render(
+            request,
+            "inventory/delete_component.html",
+            {
+                "page_title": "Delete Component",
+                "success_message": "Component deleted successfully.",
+            },
+        )
+
+    return render(
+        request,
+        "inventory/delete_component.html",
+        {
+            "page_title": "Delete Component",
+            "component": component,
         },
     )

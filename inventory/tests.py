@@ -216,3 +216,79 @@ class ComponentDuplicateIdTests(TestCase):
         )
 
         self.assertTrue(form.is_valid())
+
+class DeleteComponentViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="delete_component_staff",
+            password="SecurePass123!",
+        )
+
+        cls.component = Component.objects.create(
+            component_id="DEL001",
+            name="Delete Test Resistor",
+            category="Passive",
+            manufacturer="Test Manufacturer",
+            quantity=10,
+            unit_price="2.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+    def test_delete_component_requires_login(self):
+        url = reverse(
+            "inventory:delete_component",
+            args=[self.component.pk],
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+        self.assertTrue(
+            Component.objects.filter(pk=self.component.pk).exists()
+        )
+
+    def test_get_shows_confirmation_without_deleting(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse(
+                "inventory:delete_component",
+                args=[self.component.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Delete Test Resistor")
+        self.assertContains(response, "DEL001")
+        self.assertContains(response, "Confirm Delete")
+        self.assertTrue(
+            Component.objects.filter(pk=self.component.pk).exists()
+        )
+
+    def test_post_deletes_component_and_shows_success(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse(
+                "inventory:delete_component",
+                args=[self.component.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Component deleted successfully.")
+        self.assertFalse(
+            Component.objects.filter(pk=self.component.pk).exists()
+        )
+
+    def test_nonexistent_component_returns_404(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("inventory:delete_component", args=[999999])
+        )
+
+        self.assertEqual(response.status_code, 404)
