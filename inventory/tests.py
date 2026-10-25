@@ -1,4 +1,5 @@
-﻿from django.contrib.auth import get_user_model
+
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
@@ -148,6 +149,26 @@ class ComponentAvailabilityAndLowStockTests(TestCase):
         self.assertContains(response, "Minimum Stock Diode")
         self.assertNotContains(response, "Available Capacitor")
         self.assertNotContains(response, "Out of Stock LED")
+
+    def test_out_of_stock_page_requires_login(self):
+        response = self.client.get(reverse("inventory:out_of_stock"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+
+    def test_out_of_stock_page_shows_only_zero_quantity_components(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("inventory:out_of_stock"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Out of Stock LED")
+        self.assertContains(response, "Out of Stock")
+        self.assertNotContains(response, "Available Capacitor")
+        self.assertNotContains(response, "Low Stock Resistor")
+        self.assertNotContains(response, "Minimum Stock Diode")
+
+
 class ComponentDuplicateIdTests(TestCase):
     def test_duplicate_component_id_is_rejected(self):
         Component.objects.create(
@@ -175,7 +196,10 @@ class ComponentDuplicateIdTests(TestCase):
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn("A component with this Component ID already exists.", form.errors["component_id"])
+        self.assertIn(
+            "A component with this Component ID already exists.",
+            form.errors["component_id"],
+        )
 
     def test_unique_component_id_is_accepted(self):
         form = ComponentForm(

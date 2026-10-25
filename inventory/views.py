@@ -1,3 +1,4 @@
+
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.db.models import F
@@ -62,7 +63,6 @@ def low_stock(request):
     )
 
 
-
 @login_required
 def add_component(request):
     if request.method == "POST":
@@ -95,5 +95,20 @@ def add_component(request):
         {
             "page_title": "Add Component",
             "form": form,
+        },
+    )
+
+
+@login_required
+def out_of_stock(request):
+    """US-09: Identify components with zero available quantity."""
+    components = Component.objects.filter(quantity=0)
+
+    return render(
+        request,
+        "inventory/out_of_stock.html",
+        {
+            "page_title": "Out-of-Stock Components",
+            "components": components,
         },
     )
