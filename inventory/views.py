@@ -1,7 +1,10 @@
+
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError
 from django.db.models import F
 from django.shortcuts import get_object_or_404, render
 
+from .forms import ComponentForm
 from .models import Component
 
 
@@ -55,6 +58,57 @@ def low_stock(request):
         "inventory/low_stock.html",
         {
             "page_title": "Low-Stock Components",
+            "components": components,
+        },
+    )
+
+
+@login_required
+def add_component(request):
+    if request.method == "POST":
+        form = ComponentForm(request.POST)
+
+        if form.is_valid():
+            try:
+                form.save()
+            except IntegrityError:
+                form.add_error(
+                    "component_id",
+                    "A component with this Component ID already exists.",
+                )
+            else:
+                return render(
+                    request,
+                    "inventory/add_component.html",
+                    {
+                        "page_title": "Add Component",
+                        "form": ComponentForm(),
+                        "success_message": "Component added successfully.",
+                    },
+                )
+    else:
+        form = ComponentForm()
+
+    return render(
+        request,
+        "inventory/add_component.html",
+        {
+            "page_title": "Add Component",
+            "form": form,
+        },
+    )
+
+
+@login_required
+def out_of_stock(request):
+    """US-09: Identify components with zero available quantity."""
+    components = Component.objects.filter(quantity=0)
+
+    return render(
+        request,
+        "inventory/out_of_stock.html",
+        {
+            "page_title": "Out-of-Stock Components",
             "components": components,
         },
     )
