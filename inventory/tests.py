@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+﻿from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
@@ -141,9 +141,23 @@ class ComponentAddTests(TestCase):
             "supplier": "New Supplier",
             "minimum_stock_level": 5,
         }
-        response = self.client.post(reverse("inventory:component-add"), post_data)
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("inventory:component-list"),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(
+            Component.objects.filter(component_id="NEW001").exists()
+        )
+
+        response = self.client.get(response.url)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(Component.objects.filter(component_id="NEW001").exists())
         self.assertContains(response, "Component added successfully")
 
     def test_add_component_duplicate_id(self):
@@ -163,6 +177,30 @@ class ComponentAddTests(TestCase):
         # Should not create a second record
         self.assertEqual(Component.objects.filter(component_id="DUP001").count(), 1)
         self.assertContains(response, "Component with this Component Id already exists")
+
+    def test_add_component_negative_minimum_stock_level(self):
+        self.client.force_login(self.user)
+        post_data = {
+            "component_id": "NEGMIN",
+            "name": "Negative Minimum Stock",
+            "category": "Passive",
+            "manufacturer": "Test Manufacturer",
+            "quantity": 10,
+            "unit_price": "1.00",
+            "supplier": "Test Supplier",
+            "minimum_stock_level": -1,
+        }
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            Component.objects.filter(component_id="NEGMIN").exists()
+        )
+        self.assertContains(response, "Minimum stock level cannot be negative")
 
     def test_add_component_negative_quantity(self):
         self.client.force_login(self.user)
