@@ -1,10 +1,9 @@
-
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.db.models import F
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import ComponentForm
+
 from .models import Component
 
 
@@ -32,6 +31,53 @@ def component_list(request):
             "model_missing": False,
         },
     )
+
+
+from django.contrib import messages
+from .forms import ComponentForm
+
+
+@login_required
+def add_component(request):
+    if request.method == "POST":
+        form = ComponentForm(request.POST)
+
+        if form.is_valid():
+            try:
+                form.save()
+            except IntegrityError:
+                form.add_error(
+                    "component_id",
+                    "Component with this Component Id already exists",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Component added successfully.",
+                )
+                return redirect("inventory:component-list")
+        elif "component_id" in form.errors:
+            # Preserve the form-level validation while displaying
+            # the message expected by the add-component view.
+            if Component.objects.filter(
+                component_id=request.POST.get("component_id")
+            ).exists():
+                form.errors["component_id"] = [
+                    "Component with this Component Id already exists"
+                ]
+
+    else:
+        form = ComponentForm()
+
+    return render(
+        request,
+        "inventory/component_form.html",
+        {
+            "page_title": "Add Component",
+            "form": form,
+        },
+    )
+
 
 
 @login_required
@@ -62,41 +108,6 @@ def low_stock(request):
         },
     )
 
-
-@login_required
-def add_component(request):
-    if request.method == "POST":
-        form = ComponentForm(request.POST)
-
-        if form.is_valid():
-            try:
-                form.save()
-            except IntegrityError:
-                form.add_error(
-                    "component_id",
-                    "A component with this Component ID already exists.",
-                )
-            else:
-                return render(
-                    request,
-                    "inventory/add_component.html",
-                    {
-                        "page_title": "Add Component",
-                        "form": ComponentForm(),
-                        "success_message": "Component added successfully.",
-                    },
-                )
-    else:
-        form = ComponentForm()
-
-    return render(
-        request,
-        "inventory/add_component.html",
-        {
-            "page_title": "Add Component",
-            "form": form,
-        },
-    )
 
 
 @login_required
