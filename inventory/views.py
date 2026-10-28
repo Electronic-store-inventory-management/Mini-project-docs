@@ -127,7 +127,18 @@ def out_of_stock(request):
 
 @login_required
 def delete_component(request, component_id):
-    component = get_object_or_404(Component, id=component_id)
+    try:
+        component = Component.objects.get(id=component_id)
+    except Component.DoesNotExist:
+        return render(
+            request,
+            "inventory/delete_component.html",
+            {
+                "page_title": "Delete Component",
+                "error_message": "Component could not be found. The component was not deleted.",
+            },
+            status=404,
+        )
 
     if request.method == "POST":
         component.delete()
