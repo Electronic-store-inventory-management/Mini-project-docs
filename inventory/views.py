@@ -71,7 +71,7 @@ def add_component(request):
 
     return render(
         request,
-        "inventory/component_form.html",
+        "inventory/add_component.html",
         {
             "page_title": "Add Component",
             "form": form,
