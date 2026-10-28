@@ -37,6 +37,7 @@ from django.contrib import messages
 from .forms import ComponentForm
 
 
+
 @login_required
 def add_component(request):
     if request.method == "POST":
@@ -77,8 +78,6 @@ def add_component(request):
             "form": form,
         },
     )
-
-
 
 @login_required
 def availability(request):
@@ -123,6 +122,7 @@ def out_of_stock(request):
             "components": components,
         },
     )
+
 
 
 @login_required

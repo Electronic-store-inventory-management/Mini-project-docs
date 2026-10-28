@@ -1,35 +1,38 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ page_title }}</title>
-</head>
-<body>
 
-    <h1>{{ page_title }}</h1>
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+
+<section class="inventory-page">
+    <h2 class="page-heading">{{ page_title }}</h2>
 
     {% if success_message %}
-        <p>{{ success_message }}</p>
-
-        <a href="{% url 'inventory:component-list' %}">
-            Back to Component Inventory
-        </a>
-
+        <p class="empty-state">{{ success_message }}</p>
+        <div class="page-actions">
+            <a href="{% url 'inventory:component-list' %}">
+                Back to Component Inventory
+            </a>
+        </div>
     {% elif component %}
-        <p>
-            Are you sure you want to delete
-            <strong>{{ component.name }}</strong>
-            (Component ID: {{ component.component_id }})?
-        </p>
+        <div class="empty-state">
+            <p>
+                Are you sure you want to delete
+                <strong>{{ component.name }}</strong>
+                (Component ID: {{ component.component_id }})?
+            </p>
 
-        <form method="post">
-            {% csrf_token %}
-            <button type="submit">Confirm Delete</button>
-        </form>
+            <p>This action cannot be undone.</p>
 
-        <a href="{% url 'inventory:component-list' %}">
-            Cancel
-        </a>
+            <form method="post" class="page-actions">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    Confirm Delete
+                </button>
+                <a href="{% url 'inventory:component-list' %}">Cancel</a>
+            </form>
+        </div>
     {% endif %}
-
-</body>
-</html>
+</section>
+{% endblock %}

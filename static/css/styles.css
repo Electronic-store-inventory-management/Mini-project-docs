@@ -65,6 +65,31 @@ body {
     list-style: none;
 }
 
+
+/* Navigation links */
+.nav-link {
+    display: inline-block;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.45rem 0.65rem;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.15);
+    text-decoration: none;
+}
+
+.navbar-nav li {
+    display: flex;
+    align-items: center;
+}
+
 .navbar-user {
     font-size: 0.9rem;
     display: flex;
@@ -308,3 +333,110 @@ footer {
     color: var(--text-muted);
 }
 
+
+/* Inventory and report pages */
+.page-heading {
+    margin-bottom: 1.25rem;
+    color: var(--text-color);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0 1.5rem;
+}
+
+.page-actions a {
+    display: inline-block;
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--primary-color);
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.page-actions a:hover,
+.page-actions a:focus-visible {
+    background: var(--primary-color);
+    color: #ffffff;
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    color: var(--text-color);
+    font-size: 0.92rem;
+}
+
+.table th,
+.table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.table th {
+    background: #eef3f9;
+    color: var(--primary-color);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+.table tbody tr:hover {
+    background: #eef5ff;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.empty-state,
+.integration-notice {
+    margin: 1rem 0;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #f8fafc;
+    color: var(--text-color);
+}
+
+@media (max-width: 768px) {
+    .page-heading {
+        font-size: 1.5rem;
+    }
+
+    .table {
+        min-width: 720px;
+    }
+
+    .page-actions {
+        align-items: stretch;
+    }
+
+    .page-actions a {
+        text-align: center;
+    }
+}
