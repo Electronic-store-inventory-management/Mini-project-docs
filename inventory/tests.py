@@ -1,4 +1,4 @@
-﻿
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -429,6 +429,11 @@ class DeleteComponentViewTests(TestCase):
         self.assertContains(
             response,
             "Component could not be found. The component was not deleted.",
+            status_code=404,
+        )
+        self.assertContains(
+            response,
+            "Back to Component Inventory",
             status_code=404,
         )
         self.assertFalse(
