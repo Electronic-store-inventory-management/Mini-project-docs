@@ -54,6 +54,12 @@
                         </a>
                     </li>
 
+                    <li>
+                        <a href="{% url 'inventory:out_of_stock' %}" class="nav-link">
+                            Out of Stock
+                        </a>
+                    </li>
+
                     <li class="navbar-user">
                         <span>Signed in as <strong>{{ user.username }}</strong></span>
                         <span class="role-badge role-{{ user.role|lower }}">
