@@ -1,4 +1,7 @@
+
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 
 class Component(models.Model):
@@ -10,6 +13,42 @@ class Component(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     supplier = models.CharField(max_length=150)
     minimum_stock_level = models.PositiveIntegerField(default=5)
+
+    def clean(self):
+        super().clean()
+
+        text_fields = [
+            "component_id",
+            "name",
+            "category",
+            "manufacturer",
+            "supplier",
+        ]
+
+        errors = {}
+
+        for field in text_fields:
+            value = getattr(self, field, None)
+            if value is not None and not value.strip():
+                errors[field] = "This field cannot be empty or contain only spaces."
+
+        if self.quantity is not None and self.quantity < 0:
+            errors["quantity"] = "Quantity cannot be negative."
+
+        if self.minimum_stock_level is not None and self.minimum_stock_level < 0:
+            errors["minimum_stock_level"] = (
+                "Minimum stock level cannot be negative."
+            )
+
+        if self.unit_price is not None and self.unit_price < 0:
+            errors["unit_price"] = "Unit price cannot be negative."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def get_availability_status(self):
         if self.quantity == 0:
@@ -35,4 +74,17 @@ class Component(models.Model):
 
     class Meta:
         ordering = ["name"]
-# Create your models here.
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(quantity__gte=0),
+                name="component_quantity_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_price__gte=0),
+                name="component_price_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(minimum_stock_level__gte=0),
+                name="component_min_stock_nonnegative",
+            ),
+        ]

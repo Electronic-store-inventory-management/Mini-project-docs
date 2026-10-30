@@ -1,5 +1,6 @@
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
@@ -62,7 +63,6 @@ class ComponentAddTests(TestCase):
             password="SecurePass123!",
         )
 
-        # Existing component for the duplicate-ID test
         cls.existing = Component.objects.create(
             component_id="DUP001",
             name="Existing Resistor",
@@ -74,7 +74,6 @@ class ComponentAddTests(TestCase):
             minimum_stock_level=5,
         )
 
-        # Component fixtures for availability and low-stock tests
         cls.available = Component.objects.create(
             component_id="AV001",
             name="Available Capacitor",
@@ -129,7 +128,7 @@ class ComponentAddTests(TestCase):
         response = self.client.get(reverse("inventory:component-add"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<form")
-        self.assertContains(response, "name=\"component_id\"")
+        self.assertContains(response, 'name="component_id"')
 
     def test_add_component_valid_post_creates(self):
         self.client.force_login(self.user)
@@ -165,7 +164,7 @@ class ComponentAddTests(TestCase):
     def test_add_component_duplicate_id(self):
         self.client.force_login(self.user)
         post_data = {
-            "component_id": "DUP001",  # same as existing
+            "component_id": "DUP001",
             "name": "Dup Capacitor",
             "category": "Passive",
             "manufacturer": "Dup Manufacturer",
@@ -174,11 +173,21 @@ class ComponentAddTests(TestCase):
             "supplier": "Dup Supplier",
             "minimum_stock_level": 5,
         }
-        response = self.client.post(reverse("inventory:component-add"), post_data)
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
         self.assertEqual(response.status_code, 200)
-        # Should not create a second record
-        self.assertEqual(Component.objects.filter(component_id="DUP001").count(), 1)
-        self.assertContains(response, "Component with this Component Id already exists")
+        self.assertEqual(
+            Component.objects.filter(component_id="DUP001").count(),
+            1,
+        )
+        self.assertContains(
+            response,
+            "Component with this Component Id already exists",
+        )
 
     def test_add_component_negative_minimum_stock_level(self):
         self.client.force_login(self.user)
@@ -202,7 +211,10 @@ class ComponentAddTests(TestCase):
         self.assertFalse(
             Component.objects.filter(component_id="NEGMIN").exists()
         )
-        self.assertContains(response, "Minimum stock level cannot be negative")
+        self.assertContains(
+            response,
+            "Minimum stock level cannot be negative",
+        )
 
     def test_add_component_negative_quantity(self):
         self.client.force_login(self.user)
@@ -216,9 +228,16 @@ class ComponentAddTests(TestCase):
             "supplier": "Neg Supplier",
             "minimum_stock_level": 1,
         }
-        response = self.client.post(reverse("inventory:component-add"), post_data)
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(Component.objects.filter(component_id="NEG001").exists())
+        self.assertFalse(
+            Component.objects.filter(component_id="NEG001").exists()
+        )
         self.assertContains(response, "Quantity cannot be negative")
 
     def test_add_component_negative_price(self):
@@ -233,11 +252,17 @@ class ComponentAddTests(TestCase):
             "supplier": "Neg Supplier",
             "minimum_stock_level": 1,
         }
-        response = self.client.post(reverse("inventory:component-add"), post_data)
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(Component.objects.filter(component_id="NEGPRICE").exists())
-        self.assertContains(response, "Unit price cannot be negative")
 
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            Component.objects.filter(component_id="NEGPRICE").exists()
+        )
+        self.assertContains(response, "Unit price cannot be negative")
 
     def test_availability_statuses(self):
         self.assertEqual(self.available.availability_status, "Available")
@@ -304,6 +329,7 @@ class ComponentAddTests(TestCase):
 
 
 class ComponentDuplicateIdTests(TestCase):
+
     def test_duplicate_component_id_is_rejected(self):
         Component.objects.create(
             component_id="DUP001",
@@ -351,7 +377,9 @@ class ComponentDuplicateIdTests(TestCase):
 
         self.assertTrue(form.is_valid())
 
+
 class DeleteComponentViewTests(TestCase):
+
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(
@@ -426,3 +454,112 @@ class DeleteComponentViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+
+class ComponentIntegrityTests(TestCase):
+
+    def create_component(self, component_id="TEST001", **overrides):
+        data = {
+            "component_id": component_id,
+            "name": "Test Component",
+            "category": "Electronics",
+            "manufacturer": "Test Manufacturer",
+            "quantity": 10,
+            "unit_price": "10.00",
+            "supplier": "Test Supplier",
+            "minimum_stock_level": 5,
+        }
+        data.update(overrides)
+        return Component.objects.create(**data)
+
+    def test_whitespace_only_name_is_rejected(self):
+        component = Component(
+            component_id="SPACE001",
+            name="   ",
+            category="Electronics",
+            manufacturer="Test Manufacturer",
+            quantity=10,
+            unit_price="10.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        with self.assertRaises(ValidationError):
+            component.save()
+
+        self.assertFalse(
+            Component.objects.filter(component_id="SPACE001").exists()
+        )
+
+    def test_negative_values_are_rejected_by_model(self):
+        invalid_values = [
+            {"quantity": -1},
+            {"unit_price": "-1.00"},
+            {"minimum_stock_level": -1},
+        ]
+
+        for index, values in enumerate(invalid_values):
+            with self.subTest(values=values):
+                component = Component(
+                    component_id=f"INVALID{index}",
+                    name="Valid Component",
+                    category="Electronics",
+                    manufacturer="Test Manufacturer",
+                    quantity=10,
+                    unit_price="10.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=5,
+                )
+
+                for field, value in values.items():
+                    setattr(component, field, value)
+
+                with self.assertRaises(ValidationError):
+                    component.save()
+
+    def test_existing_record_remains_unchanged_after_other_record_operations(self):
+        original = self.create_component(
+            component_id="KEEP001",
+            name="Original Component",
+            quantity=25,
+        )
+
+        self.create_component(
+            component_id="NEW002",
+            name="New Component",
+        )
+
+        new_component = Component.objects.get(component_id="NEW002")
+        new_component.delete()
+
+        original.refresh_from_db()
+
+        self.assertEqual(original.name, "Original Component")
+        self.assertEqual(original.quantity, 25)
+        self.assertTrue(
+            Component.objects.filter(component_id="KEEP001").exists()
+        )
+
+    def test_system_handles_large_inventory(self):
+        components = [
+            Component(
+                component_id=f"BULK{i:04d}",
+                name=f"Component {i}",
+                category="Electronics",
+                manufacturer="Test Manufacturer",
+                quantity=100,
+                unit_price="5.00",
+                supplier="Test Supplier",
+                minimum_stock_level=10,
+            )
+            for i in range(100)
+        ]
+
+        Component.objects.bulk_create(components)
+
+        self.assertEqual(
+            Component.objects.filter(
+                component_id__startswith="BULK"
+            ).count(),
+            100,
+        )
