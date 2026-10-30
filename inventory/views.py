@@ -1,10 +1,26 @@
+
+from functools import wraps
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
 from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 
-
+from .forms import ComponentForm
 from .models import Component
+
+
+def admin_required(view_func):
+    """Allow only users with the ADMIN role or superuser status."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_admin_role:
+            raise PermissionDenied
+        return view_func(request, *args, **kwargs)
+
+    return wrapper
 
 
 @login_required
@@ -33,11 +49,8 @@ def component_list(request):
     )
 
 
-from django.contrib import messages
-from .forms import ComponentForm
-
-
 @login_required
+@admin_required
 def add_component(request):
     if request.method == "POST":
         form = ComponentForm(request.POST)
@@ -57,15 +70,12 @@ def add_component(request):
                 )
                 return redirect("inventory:component-list")
         elif "component_id" in form.errors:
-            # Preserve the form-level validation while displaying
-            # the message expected by the add-component view.
             if Component.objects.filter(
                 component_id=request.POST.get("component_id")
             ).exists():
                 form.errors["component_id"] = [
                     "Component with this Component Id already exists"
                 ]
-
     else:
         form = ComponentForm()
 
@@ -77,7 +87,6 @@ def add_component(request):
             "form": form,
         },
     )
-
 
 
 @login_required
@@ -109,7 +118,6 @@ def low_stock(request):
     )
 
 
-
 @login_required
 def out_of_stock(request):
     """US-09: Identify components with zero available quantity."""
@@ -126,6 +134,7 @@ def out_of_stock(request):
 
 
 @login_required
+@admin_required
 def delete_component(request, component_id):
     try:
         component = Component.objects.get(id=component_id)

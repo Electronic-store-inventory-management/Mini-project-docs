@@ -11,11 +11,13 @@ User = get_user_model()
 
 
 class ComponentListViewTests(TestCase):
+
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(
             username="inventory_list_staff",
             password="SecurePass123!",
+            role=User.Role.STAFF,
         )
 
     def test_component_list_requires_login(self):
@@ -43,6 +45,7 @@ class ComponentListViewTests(TestCase):
             supplier="Test Supplier",
             minimum_stock_level=10,
         )
+
         self.client.force_login(self.user)
 
         response = self.client.get(reverse("inventory:component-list"))
@@ -57,12 +60,26 @@ class ComponentAddTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
+        cls.password = "SecurePass123!"
+
         cls.user = User.objects.create_user(
-            username="add_staff",
-            password="SecurePass123!",
+            username="add_admin",
+            password=cls.password,
+            role=User.Role.ADMIN,
         )
 
-        # Existing component for the duplicate-ID test
+        cls.staff_user = User.objects.create_user(
+            username="add_staff",
+            password=cls.password,
+            role=User.Role.STAFF,
+        )
+
+        cls.manager_user = User.objects.create_user(
+            username="add_manager",
+            password=cls.password,
+            role=User.Role.MANAGER,
+        )
+
         cls.existing = Component.objects.create(
             component_id="DUP001",
             name="Existing Resistor",
@@ -74,7 +91,6 @@ class ComponentAddTests(TestCase):
             minimum_stock_level=5,
         )
 
-        # Component fixtures for availability and low-stock tests
         cls.available = Component.objects.create(
             component_id="AV001",
             name="Available Capacitor",
@@ -121,18 +137,22 @@ class ComponentAddTests(TestCase):
 
     def test_add_component_unauthenticated_redirect(self):
         response = self.client.get(reverse("inventory:component-add"))
+
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
     def test_add_component_get_shows_form(self):
         self.client.force_login(self.user)
+
         response = self.client.get(reverse("inventory:component-add"))
+
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<form")
-        self.assertContains(response, "name=\"component_id\"")
+        self.assertContains(response, 'name="component_id"')
 
     def test_add_component_valid_post_creates(self):
         self.client.force_login(self.user)
+
         post_data = {
             "component_id": "NEW001",
             "name": "New Capacitor",
@@ -154,18 +174,87 @@ class ComponentAddTests(TestCase):
             reverse("inventory:component-list"),
             fetch_redirect_response=False,
         )
+
         self.assertTrue(
             Component.objects.filter(component_id="NEW001").exists()
         )
 
         response = self.client.get(response.url)
+
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Component added successfully")
 
+    # US-14: Only ADMIN can add components.
+
+    def test_staff_cannot_access_add_component_form(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse("inventory:component-add"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_manager_cannot_access_add_component_form(self):
+        self.client.force_login(self.manager_user)
+
+        response = self.client.get(reverse("inventory:component-add"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_cannot_add_component(self):
+        self.client.force_login(self.staff_user)
+
+        post_data = {
+            "component_id": "STAFF001",
+            "name": "Staff Component",
+            "category": "Passive",
+            "manufacturer": "Test Manufacturer",
+            "quantity": 10,
+            "unit_price": "1.00",
+            "supplier": "Test Supplier",
+            "minimum_stock_level": 5,
+        }
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+        self.assertFalse(
+            Component.objects.filter(component_id="STAFF001").exists()
+        )
+
+    def test_manager_cannot_add_component(self):
+        self.client.force_login(self.manager_user)
+
+        post_data = {
+            "component_id": "MANAGER001",
+            "name": "Manager Component",
+            "category": "Passive",
+            "manufacturer": "Test Manufacturer",
+            "quantity": 10,
+            "unit_price": "1.00",
+            "supplier": "Test Supplier",
+            "minimum_stock_level": 5,
+        }
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+        self.assertFalse(
+            Component.objects.filter(component_id="MANAGER001").exists()
+        )
+
     def test_add_component_duplicate_id(self):
         self.client.force_login(self.user)
+
         post_data = {
-            "component_id": "DUP001",  # same as existing
+            "component_id": "DUP001",
             "name": "Dup Capacitor",
             "category": "Passive",
             "manufacturer": "Dup Manufacturer",
@@ -174,14 +263,27 @@ class ComponentAddTests(TestCase):
             "supplier": "Dup Supplier",
             "minimum_stock_level": 5,
         }
-        response = self.client.post(reverse("inventory:component-add"), post_data)
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
         self.assertEqual(response.status_code, 200)
-        # Should not create a second record
-        self.assertEqual(Component.objects.filter(component_id="DUP001").count(), 1)
-        self.assertContains(response, "Component with this Component Id already exists")
+
+        self.assertEqual(
+            Component.objects.filter(component_id="DUP001").count(),
+            1,
+        )
+
+        self.assertContains(
+            response,
+            "Component with this Component Id already exists",
+        )
 
     def test_add_component_negative_minimum_stock_level(self):
         self.client.force_login(self.user)
+
         post_data = {
             "component_id": "NEGMIN",
             "name": "Negative Minimum Stock",
@@ -199,13 +301,19 @@ class ComponentAddTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+
         self.assertFalse(
             Component.objects.filter(component_id="NEGMIN").exists()
         )
-        self.assertContains(response, "Minimum stock level cannot be negative")
+
+        self.assertContains(
+            response,
+            "Minimum stock level cannot be negative",
+        )
 
     def test_add_component_negative_quantity(self):
         self.client.force_login(self.user)
+
         post_data = {
             "component_id": "NEG001",
             "name": "Neg Qty",
@@ -216,13 +324,23 @@ class ComponentAddTests(TestCase):
             "supplier": "Neg Supplier",
             "minimum_stock_level": 1,
         }
-        response = self.client.post(reverse("inventory:component-add"), post_data)
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(Component.objects.filter(component_id="NEG001").exists())
+
+        self.assertFalse(
+            Component.objects.filter(component_id="NEG001").exists()
+        )
+
         self.assertContains(response, "Quantity cannot be negative")
 
     def test_add_component_negative_price(self):
         self.client.force_login(self.user)
+
         post_data = {
             "component_id": "NEGPRICE",
             "name": "Neg Price",
@@ -233,11 +351,19 @@ class ComponentAddTests(TestCase):
             "supplier": "Neg Supplier",
             "minimum_stock_level": 1,
         }
-        response = self.client.post(reverse("inventory:component-add"), post_data)
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(Component.objects.filter(component_id="NEGPRICE").exists())
-        self.assertContains(response, "Unit price cannot be negative")
 
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertFalse(
+            Component.objects.filter(component_id="NEGPRICE").exists()
+        )
+
+        self.assertContains(response, "Unit price cannot be negative")
 
     def test_availability_statuses(self):
         self.assertEqual(self.available.availability_status, "Available")
@@ -247,6 +373,7 @@ class ComponentAddTests(TestCase):
 
     def test_availability_page_requires_login(self):
         url = reverse("inventory:availability")
+
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 302)
@@ -268,6 +395,7 @@ class ComponentAddTests(TestCase):
 
     def test_low_stock_page_requires_login(self):
         url = reverse("inventory:low_stock")
+
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 302)
@@ -304,6 +432,7 @@ class ComponentAddTests(TestCase):
 
 
 class ComponentDuplicateIdTests(TestCase):
+
     def test_duplicate_component_id_is_rejected(self):
         Component.objects.create(
             component_id="DUP001",
@@ -330,6 +459,7 @@ class ComponentDuplicateIdTests(TestCase):
         )
 
         self.assertFalse(form.is_valid())
+
         self.assertIn(
             "A component with this Component ID already exists.",
             form.errors["component_id"],
@@ -351,12 +481,27 @@ class ComponentDuplicateIdTests(TestCase):
 
         self.assertTrue(form.is_valid())
 
+
 class DeleteComponentViewTests(TestCase):
+
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(
-            username="delete_component_staff",
+            username="delete_component_admin",
             password="SecurePass123!",
+            role=User.Role.ADMIN,
+        )
+
+        cls.staff_user = User.objects.create_user(
+            username="delete_staff",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+        cls.manager_user = User.objects.create_user(
+            username="delete_manager",
+            password="SecurePass123!",
+            role=User.Role.MANAGER,
         )
 
         cls.component = Component.objects.create(
@@ -380,6 +525,7 @@ class DeleteComponentViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
+
         self.assertTrue(
             Component.objects.filter(pk=self.component.pk).exists()
         )
@@ -398,6 +544,7 @@ class DeleteComponentViewTests(TestCase):
         self.assertContains(response, "Delete Test Resistor")
         self.assertContains(response, "DEL001")
         self.assertContains(response, "Confirm Delete")
+
         self.assertTrue(
             Component.objects.filter(pk=self.component.pk).exists()
         )
@@ -414,11 +561,94 @@ class DeleteComponentViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Component deleted successfully.")
+
         self.assertFalse(
             Component.objects.filter(pk=self.component.pk).exists()
         )
 
     def test_nonexistent_component_returns_error_message(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("inventory:delete_component", args=[999999])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(
+            response,
+            "Component could not be found. The component was not deleted.",
+            status_code=404,
+        )
+        self.assertContains(
+            response,
+            "Back to Component Inventory",
+            status_code=404,
+        )
+        self.assertFalse(
+            Component.objects.filter(pk=999999).exists()
+        )
+
+    # US-14: Only ADMIN can delete components.
+
+    def test_staff_cannot_access_delete_confirmation(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse(
+                "inventory:delete_component",
+                args=[self.component.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(
+            Component.objects.filter(pk=self.component.pk).exists()
+        )
+
+    def test_manager_cannot_access_delete_confirmation(self):
+        self.client.force_login(self.manager_user)
+
+        response = self.client.get(
+            reverse(
+                "inventory:delete_component",
+                args=[self.component.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(
+            Component.objects.filter(pk=self.component.pk).exists()
+        )
+
+    def test_staff_cannot_delete_component(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.post(
+            reverse(
+                "inventory:delete_component",
+                args=[self.component.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(
+            Component.objects.filter(pk=self.component.pk).exists()
+        )
+
+    def test_manager_cannot_delete_component(self):
+        self.client.force_login(self.manager_user)
+
+        response = self.client.post(
+            reverse(
+                "inventory:delete_component",
+                args=[self.component.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(
+            Component.objects.filter(pk=self.component.pk).exists()
+        )
         self.client.force_login(self.user)
 
         response = self.client.get(
