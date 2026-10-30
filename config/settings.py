@@ -1,3 +1,4 @@
+
 """
 Django settings for config project.
 
@@ -13,15 +14,14 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env file if present (override=True ensures .env values take precedence)
+# Load environment variables from .env file if present
 env_file = BASE_DIR / '.env'
 if env_file.exists():
     load_dotenv(dotenv_path=env_file, override=True)
 else:
     load_dotenv(override=True)
 
-# Security: Read secrets from environment variables (SAD Section 3.9)
-
+# Security: Read secrets from environment variables
 debug_val = os.getenv('DEBUG', 'False')
 DEBUG = str(debug_val).lower() in ('true', '1', 'yes')
 
@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     # Project modules per SAD Section 4.1
     'accounts.apps.AccountsConfig',
     'inventory.apps.InventoryConfig',
+    'dashboard.apps.DashboardConfig',
+    'reports.apps.ReportsConfig',
 ]
 
 MIDDLEWARE = [
@@ -76,15 +78,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Custom User Model configuration (SAD Section 3.6 & Section 5)
+# Custom User Model configuration
 AUTH_USER_MODEL = 'accounts.User'
 
-# Database Configuration (SAD Section 3.6: MySQL through Django ORM)
-# Credentials and connection parameters are loaded from environment variables (.env).
-# The permanent target database specified by SAD is MySQL.
-# For automated unit testing ('manage.py test'), an isolated in-memory test database is used
-# so developers/CI do not require administrative MySQL CREATE DATABASE privileges.
-# Set TEST_WITH_MYSQL=1 if running test suites directly against a MySQL server with root privileges.
+# Database Configuration: MySQL through Django ORM
+# Credentials and connection parameters are loaded from .env.
+# Automated tests use an isolated SQLite database unless TEST_WITH_MYSQL is set.
 is_testing = 'test' in sys.argv
 
 if is_testing and not os.environ.get('TEST_WITH_MYSQL'):
@@ -119,7 +118,6 @@ else:
         }
 
 # Password validation
-# https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -140,7 +138,7 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'inventory:landing'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Session and Cookie Security (SAD Section 3.9 & SRS AC-SR-002)
+# Session and Cookie Security
 # 30-minute session expiration on inactivity
 SESSION_COOKIE_AGE = 1800
 SESSION_SAVE_EVERY_REQUEST = True
@@ -149,21 +147,32 @@ CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# Cache Configuration (Used for login rate‑limiting per SAD 3.9 & SRS AC‑SR‑006)
-# Use a shared cache backend (e.g., Redis) in production via CACHE_URL.
-# Fallback to LocMemCache for local development when CACHE_URL is not set.
+# Cache Configuration for login rate-limiting
+# Local memory for tests, Redis in production when configured.
 CACHE_URL = os.getenv('CACHE_URL')
-# In production (DEBUG=False) the shared cache is mandatory.
-if not CACHE_URL and not DEBUG and not is_testing:
-    raise ValueError("CACHE_URL must be set in production (DEBUG=False) for shared cache.")
-if CACHE_URL:
+
+if is_testing:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'electronics-auth-test-cache',
+        }
+    }
+
+elif CACHE_URL:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
             'LOCATION': CACHE_URL,
         }
     }
+
 else:
+    if not DEBUG:
+        raise ValueError(
+            "CACHE_URL must be set in production (DEBUG=False) for shared cache."
+        )
+
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',

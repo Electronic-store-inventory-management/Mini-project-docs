@@ -7,6 +7,12 @@
 
     <h1>{{ page_title }}</h1>
 
+    {% if messages %}
+        {% for message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+
     {% if success_message %}
         <p>{{ success_message }}</p>
     {% endif %}
