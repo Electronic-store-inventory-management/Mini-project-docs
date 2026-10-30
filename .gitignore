@@ -11,7 +11,6 @@ __pycache__/
 venv/
 env/
 ENV/
-.env/
 
 # Build and distribution
 build/
@@ -30,15 +29,20 @@ wheels/
 .installed.cfg
 *.egg
 
-# Local database
-db.sqlite3
-db.sqlite3-journal
-
-# Secrets and environment files
+# Environment variables and secrets
 .env
+.env/
 .env.*
 !.env.example
 !.env.*.example
+
+# Local databases and backups
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3.backup
+db.sqlite3.backup
 
 # Django generated files
 *.log
@@ -46,7 +50,13 @@ local_settings.py
 staticfiles/
 media/
 
-# Editors and IDEs
+# Test and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# IDE and editors
 .vscode/
 .idea/
 *.swp
@@ -55,4 +65,3 @@ media/
 # Operating system files
 .DS_Store
 Thumbs.db
-

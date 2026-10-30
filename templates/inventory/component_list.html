@@ -1,0 +1,44 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Component Inventory{% endblock %}
+
+{% block content %}
+  <h2>Component Inventory</h2>
+  {% if model_missing %}
+    <p class="integration-notice">Component inventory is not available yet.</p>
+{% elif components %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Manufacturer</th>
+          <th>Quantity</th>
+          <th>Unit Price</th>
+          <th>Supplier</th>
+          <th>Minimum Stock</th>
+          <th>Availability Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for comp in components %}
+          <tr>
+
+            <td>{{ comp.component_id }}</td>
+            <td>{{ comp.name }}</td>
+            <td>{{ comp.category }}</td>
+            <td>{{ comp.manufacturer }}</td>
+            <td>{{ comp.quantity }}</td>
+            <td>{{ comp.unit_price }}</td>
+            <td>{{ comp.supplier }}</td>
+            <td>{{ comp.minimum_stock_level }}</td>
+            <td>{{ comp.availability_status }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No components found in the inventory.</p>
+  {% endif %}
+{% endblock %}

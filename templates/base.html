@@ -22,6 +22,10 @@
 
             <ul class="navbar-nav">
                 {% if user.is_authenticated %}
+                <li><a href="{% url 'inventory:component-list' %}" class="nav-link">Component Inventory</a></li>
+                <li><a href="{% url 'inventory:component-add' %}" class="nav-link">Add Component</a></li>
+                <li><a href="{% url 'inventory:availability' %}" class="nav-link">Availability</a></li>
+                <li><a href="{% url 'inventory:low_stock' %}" class="nav-link">Low Stock</a></li>
                     <li class="navbar-user">
                         <span>Signed in as <strong>{{ user.username }}</strong></span>
                         <span class="role-badge role-{{ user.role|lower }}">{{ user.get_role_display }}</span>

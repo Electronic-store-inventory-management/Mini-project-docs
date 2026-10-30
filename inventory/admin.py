@@ -14,6 +14,7 @@ class ComponentAdmin(admin.ModelAdmin):
         "minimum_stock_level",
         "unit_price",
         "supplier",
+        "availability_status",
     )
 
     search_fields = (
@@ -25,5 +26,4 @@ class ComponentAdmin(admin.ModelAdmin):
     )
 
     list_filter = ("category", "manufacturer")
-
     ordering = ("name",)
