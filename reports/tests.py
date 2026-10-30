@@ -1,3 +1,4 @@
+
 import csv
 
 from django.contrib.auth import get_user_model
@@ -154,6 +155,55 @@ class AvailabilityReportTests(TestCase):
         self.client.logout()
 
         response = self.client.get(self.report_url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_all_authenticated_roles_can_access_report_and_csv(self):
+        for role in (
+            User.Role.ADMIN,
+            User.Role.MANAGER,
+            User.Role.STAFF,
+        ):
+            with self.subTest(role=role):
+                user = User.objects.create_user(
+                    username=f"report_{role.value.lower()}",
+                    password="SecurePass123!",
+                    role=role,
+                )
+
+                self.client.force_login(user)
+
+                report_response = self.client.get(self.report_url)
+
+                self.assertEqual(
+                    report_response.status_code,
+                    200,
+                    f"{role} should access the availability report.",
+                )
+
+                csv_response = self.client.get(
+                    self.report_url,
+                    {"export": "csv"},
+                )
+
+                self.assertEqual(
+                    csv_response.status_code,
+                    200,
+                    f"{role} should be allowed to export CSV.",
+                )
+                self.assertIn(
+                    "text/csv",
+                    csv_response["Content-Type"],
+                )
+
+    def test_unauthenticated_user_cannot_export_csv(self):
+        self.client.logout()
+
+        response = self.client.get(
+            self.report_url,
+            {"export": "csv"},
+        )
 
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/login/", response.url)

@@ -1,3 +1,4 @@
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -89,3 +90,28 @@ class DashboardTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/login/", response.url)
+
+    def test_all_authenticated_roles_can_access_dashboard(self):
+        for role in (
+            User.Role.ADMIN,
+            User.Role.MANAGER,
+            User.Role.STAFF,
+        ):
+            with self.subTest(role=role):
+                user = User.objects.create_user(
+                    username=f"dashboard_{role.value.lower()}",
+                    password="SecurePass123!",
+                    role=role,
+                )
+
+                self.client.force_login(user)
+
+                response = self.client.get(
+                    reverse("dashboard:home")
+                )
+
+                self.assertEqual(
+                    response.status_code,
+                    200,
+                    f"{role} should be allowed to access the dashboard.",
+                )
