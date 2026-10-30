@@ -1,4 +1,18 @@
 
+"""
+Models for the inventory application.
+
+Important validation note:
+Normal model saves call full_clean() before saving.
+However, bulk_create(), bulk_update(), and QuerySet.update()
+bypass save() and full_clean().
+
+Therefore, callers using bulk operations must validate text
+fields themselves. Database constraints protect the numeric
+fields, but whitespace-only text validation is not enforced
+at the database level.
+"""
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -29,13 +43,19 @@ class Component(models.Model):
 
         for field in text_fields:
             value = getattr(self, field, None)
+
             if value is not None and not value.strip():
-                errors[field] = "This field cannot be empty or contain only spaces."
+                errors[field] = (
+                    "This field cannot be empty or contain only spaces."
+                )
 
         if self.quantity is not None and self.quantity < 0:
             errors["quantity"] = "Quantity cannot be negative."
 
-        if self.minimum_stock_level is not None and self.minimum_stock_level < 0:
+        if (
+            self.minimum_stock_level is not None
+            and self.minimum_stock_level < 0
+        ):
             errors["minimum_stock_level"] = (
                 "Minimum stock level cannot be negative."
             )
@@ -47,6 +67,7 @@ class Component(models.Model):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
+        """Validate the model before performing a normal save."""
         self.full_clean()
         return super().save(*args, **kwargs)
 

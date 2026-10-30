@@ -472,24 +472,39 @@ class ComponentIntegrityTests(TestCase):
         data.update(overrides)
         return Component.objects.create(**data)
 
-    def test_whitespace_only_name_is_rejected(self):
-        component = Component(
-            component_id="SPACE001",
-            name="   ",
-            category="Electronics",
-            manufacturer="Test Manufacturer",
-            quantity=10,
-            unit_price="10.00",
-            supplier="Test Supplier",
-            minimum_stock_level=5,
-        )
+    def test_whitespace_only_text_fields_are_rejected(self):
+        text_fields = [
+            "component_id",
+            "name",
+            "category",
+            "manufacturer",
+            "supplier",
+        ]
 
-        with self.assertRaises(ValidationError):
-            component.save()
+        for field in text_fields:
+            with self.subTest(field=field):
+                data = {
+                    "component_id": "SPACE001",
+                    "name": "Valid Component",
+                    "category": "Electronics",
+                    "manufacturer": "Test Manufacturer",
+                    "supplier": "Test Supplier",
+                    "quantity": 10,
+                    "unit_price": "10.00",
+                    "minimum_stock_level": 5,
+                }
 
-        self.assertFalse(
-            Component.objects.filter(component_id="SPACE001").exists()
-        )
+                data[field] = "   "
+                component = Component(**data)
+
+                with self.assertRaises(ValidationError):
+                    component.save()
+
+                self.assertFalse(
+                    Component.objects.filter(
+                        component_id="SPACE001"
+                    ).exists()
+                )
 
     def test_negative_values_are_rejected_by_model(self):
         invalid_values = [
@@ -540,7 +555,7 @@ class ComponentIntegrityTests(TestCase):
             Component.objects.filter(component_id="KEEP001").exists()
         )
 
-    def test_system_handles_large_inventory(self):
+    def test_bulk_create_inserts_100_inventory_records(self):
         components = [
             Component(
                 component_id=f"BULK{i:04d}",
