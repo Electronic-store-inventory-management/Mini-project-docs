@@ -418,7 +418,7 @@ class DeleteComponentViewTests(TestCase):
             Component.objects.filter(pk=self.component.pk).exists()
         )
 
-    def test_nonexistent_component_returns_404(self):
+    def test_nonexistent_component_returns_error_message(self):
         self.client.force_login(self.user)
 
         response = self.client.get(
@@ -426,3 +426,16 @@ class DeleteComponentViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+        self.assertContains(
+            response,
+            "Component could not be found. The component was not deleted.",
+            status_code=404,
+        )
+        self.assertContains(
+            response,
+            "Back to Component Inventory",
+            status_code=404,
+        )
+        self.assertFalse(
+            Component.objects.filter(pk=999999).exists()
+        )
