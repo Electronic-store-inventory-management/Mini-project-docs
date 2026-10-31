@@ -21,15 +21,12 @@ class ComponentListViewTests(TestCase):
 
     def test_component_list_requires_login(self):
         response = self.client.get(reverse("inventory:component-list"))
-
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
     def test_component_list_empty_inventory(self):
         self.client.force_login(self.user)
-
         response = self.client.get(reverse("inventory:component-list"))
-
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "No components found in the inventory.")
 
@@ -45,9 +42,7 @@ class ComponentListViewTests(TestCase):
             minimum_stock_level=10,
         )
         self.client.force_login(self.user)
-
         response = self.client.get(reverse("inventory:component-list"))
-
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, component.component_id)
         self.assertContains(response, component.name)
@@ -55,7 +50,6 @@ class ComponentListViewTests(TestCase):
 
 
 class ComponentAddTests(TestCase):
-
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(
@@ -273,13 +267,11 @@ class ComponentAddTests(TestCase):
     def test_availability_page_requires_login(self):
         url = reverse("inventory:availability")
         response = self.client.get(url)
-
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
     def test_availability_page_shows_all_components_and_statuses(self):
         self.client.force_login(self.user)
-
         response = self.client.get(reverse("inventory:availability"))
 
         self.assertEqual(response.status_code, 200)
@@ -294,13 +286,11 @@ class ComponentAddTests(TestCase):
     def test_low_stock_page_requires_login(self):
         url = reverse("inventory:low_stock")
         response = self.client.get(url)
-
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
     def test_low_stock_page_shows_only_positive_low_stock(self):
         self.client.force_login(self.user)
-
         response = self.client.get(reverse("inventory:low_stock"))
 
         self.assertEqual(response.status_code, 200)
@@ -311,13 +301,11 @@ class ComponentAddTests(TestCase):
 
     def test_out_of_stock_page_requires_login(self):
         response = self.client.get(reverse("inventory:out_of_stock"))
-
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
     def test_out_of_stock_page_shows_only_zero_quantity_components(self):
         self.client.force_login(self.user)
-
         response = self.client.get(reverse("inventory:out_of_stock"))
 
         self.assertEqual(response.status_code, 200)
@@ -329,7 +317,6 @@ class ComponentAddTests(TestCase):
 
 
 class ComponentDuplicateIdTests(TestCase):
-
     def test_duplicate_component_id_is_rejected(self):
         Component.objects.create(
             component_id="DUP001",
@@ -379,7 +366,6 @@ class ComponentDuplicateIdTests(TestCase):
 
 
 class DeleteComponentViewTests(TestCase):
-
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(
@@ -403,7 +389,6 @@ class DeleteComponentViewTests(TestCase):
             "inventory:delete_component",
             args=[self.component.pk],
         )
-
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 302)
@@ -414,7 +399,6 @@ class DeleteComponentViewTests(TestCase):
 
     def test_get_shows_confirmation_without_deleting(self):
         self.client.force_login(self.user)
-
         response = self.client.get(
             reverse(
                 "inventory:delete_component",
@@ -432,7 +416,6 @@ class DeleteComponentViewTests(TestCase):
 
     def test_post_deletes_component_and_shows_success(self):
         self.client.force_login(self.user)
-
         response = self.client.post(
             reverse(
                 "inventory:delete_component",
@@ -448,16 +431,13 @@ class DeleteComponentViewTests(TestCase):
 
     def test_nonexistent_component_returns_404(self):
         self.client.force_login(self.user)
-
         response = self.client.get(
             reverse("inventory:delete_component", args=[999999])
         )
-
         self.assertEqual(response.status_code, 404)
 
 
 class ComponentIntegrityTests(TestCase):
-
     def create_component(self, component_id="TEST001", **overrides):
         data = {
             "component_id": component_id,
@@ -493,7 +473,6 @@ class ComponentIntegrityTests(TestCase):
                     "unit_price": "10.00",
                     "minimum_stock_level": 5,
                 }
-
                 data[field] = "   "
                 component = Component(**data)
 
@@ -546,7 +525,6 @@ class ComponentIntegrityTests(TestCase):
 
         new_component = Component.objects.get(component_id="NEW002")
         new_component.delete()
-
         original.refresh_from_db()
 
         self.assertEqual(original.name, "Original Component")
@@ -578,3 +556,63 @@ class ComponentIntegrityTests(TestCase):
             ).count(),
             100,
         )
+
+    def test_bulk_create_rejects_whitespace_only_fields(self):
+        component = Component(
+            component_id="BULK001",
+            name="   ",
+            category="Electronics",
+            manufacturer="Test Manufacturer",
+            quantity=10,
+            unit_price="5.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        with self.assertRaises(ValidationError):
+            Component.objects.bulk_create([component])
+
+        self.assertFalse(
+            Component.objects.filter(component_id="BULK001").exists()
+        )
+
+    def test_bulk_update_rejects_whitespace_only_fields(self):
+        component = self.create_component(
+            component_id="BULK002",
+            name="Valid Component",
+        )
+        component.name = "   "
+
+        with self.assertRaises(ValidationError):
+            Component.objects.bulk_update([component], ["name"])
+
+        component.refresh_from_db()
+        self.assertEqual(component.name, "Valid Component")
+
+    def test_queryset_update_rejects_whitespace_only_fields(self):
+        component = self.create_component(
+            component_id="BULK003",
+            name="Valid Component",
+        )
+
+        with self.assertRaises(ValidationError):
+            Component.objects.filter(pk=component.pk).update(name="   ")
+
+        component.refresh_from_db()
+        self.assertEqual(component.name, "Valid Component")
+
+    def test_bulk_update_accepts_valid_data(self):
+        component = self.create_component(
+            component_id="BULK004",
+            quantity=10,
+        )
+        component.quantity = 25
+
+        updated_count = Component.objects.bulk_update(
+            [component],
+            ["quantity"],
+        )
+
+        component.refresh_from_db()
+        self.assertEqual(updated_count, 1)
+        self.assertEqual(component.quantity, 25)

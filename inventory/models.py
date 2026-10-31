@@ -1,21 +1,50 @@
 
-"""
-Models for the inventory application.
-
-Important validation note:
-Normal model saves call full_clean() before saving.
-However, bulk_create(), bulk_update(), and QuerySet.update()
-bypass save() and full_clean().
-
-Therefore, callers using bulk operations must validate text
-fields themselves. Database constraints protect the numeric
-fields, but whitespace-only text validation is not enforced
-at the database level.
-"""
-
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+
+
+class ComponentQuerySet(models.QuerySet):
+    """QuerySet methods that preserve Component validation."""
+
+    def bulk_create(self, objs, **kwargs):
+        objs = list(objs)
+
+        for obj in objs:
+            obj.full_clean()
+
+        return super().bulk_create(objs, **kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        objs = list(objs)
+
+        for obj in objs:
+            obj.full_clean()
+
+        return super().bulk_update(
+            objs,
+            fields,
+            batch_size=batch_size,
+        )
+
+    def update(self, **kwargs):
+        protected_fields = {
+            "component_id",
+            "name",
+            "category",
+            "manufacturer",
+            "supplier",
+        }
+
+        modified_fields = protected_fields.intersection(kwargs)
+
+        if modified_fields:
+            raise ValidationError(
+                "QuerySet.update() cannot modify validated text fields. "
+                "Use normal model saves so validation is performed."
+            )
+
+        return super().update(**kwargs)
 
 
 class Component(models.Model):
@@ -27,6 +56,8 @@ class Component(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     supplier = models.CharField(max_length=150)
     minimum_stock_level = models.PositiveIntegerField(default=5)
+
+    objects = ComponentQuerySet.as_manager()
 
     def clean(self):
         super().clean()
