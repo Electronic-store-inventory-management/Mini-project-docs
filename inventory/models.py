@@ -7,6 +7,7 @@ from django.db.models import Q
 class ComponentQuerySet(models.QuerySet):
     """QuerySet methods that preserve Component validation."""
 
+
     def bulk_create(
         self,
         objs,
@@ -18,8 +19,14 @@ class ComponentQuerySet(models.QuerySet):
     ):
         objs = list(objs)
 
+        # Skip uniqueness validation when database conflict
+        # handling is requested.
+        validate_unique = not (
+            ignore_conflicts or update_conflicts
+        )
+
         for obj in objs:
-            obj.full_clean()
+            obj.full_clean(validate_unique=validate_unique)
 
         return super().bulk_create(
             objs,

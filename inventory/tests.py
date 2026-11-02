@@ -1,11 +1,13 @@
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
 
 from .forms import ComponentForm
 from .models import Component
+
 
 
 User = get_user_model()
@@ -511,7 +513,6 @@ class ComponentIntegrityTests(TestCase):
                 with self.assertRaises(ValidationError):
                     component.save()
 
-
     def test_existing_record_remains_unchanged_after_other_record_operations(self):
         original = self.create_component(
             component_id="KEEP001",
@@ -580,6 +581,69 @@ class ComponentIntegrityTests(TestCase):
             Component.objects.filter(component_id="BULK001").exists()
         )
 
+    def test_bulk_create_ignore_conflicts(self):
+        self.create_component(
+            component_id="CONFLICT001",
+            name="Original Component",
+        )
+
+        duplicate = Component(
+            component_id="CONFLICT001",
+            name="Duplicate Component",
+            category="Electronics",
+            manufacturer="Test Manufacturer",
+            quantity=20,
+            unit_price="5.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        Component.objects.bulk_create(
+            [duplicate],
+            ignore_conflicts=True,
+        )
+
+        existing = Component.objects.get(
+            component_id="CONFLICT001"
+        )
+        self.assertEqual(existing.name, "Original Component")
+
+    def test_bulk_create_update_conflicts(self):
+        self.create_component(
+            component_id="CONFLICT002",
+            name="Original Component",
+        )
+
+        updated = Component(
+            component_id="CONFLICT002",
+            name="Updated Component",
+            category="Electronics",
+            manufacturer="Test Manufacturer",
+            quantity=30,
+            unit_price="8.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        conflict_options = {
+            "update_conflicts": True,
+            "update_fields": ["name", "quantity", "unit_price"],
+        }
+
+        if connection.features.supports_update_conflicts_with_target:
+            conflict_options["unique_fields"] = ["component_id"]
+
+        Component.objects.bulk_create(
+            [updated],
+            **conflict_options,
+        )
+
+        existing = Component.objects.get(
+            component_id="CONFLICT002"
+        )
+        self.assertEqual(existing.name, "Updated Component")
+        self.assertEqual(existing.quantity, 30)
+        self.assertEqual(existing.unit_price, 8)
     def test_bulk_update_rejects_whitespace_only_fields(self):
         component = self.create_component(
             component_id="BULK002",
@@ -604,6 +668,8 @@ class ComponentIntegrityTests(TestCase):
 
         component.refresh_from_db()
         self.assertEqual(component.name, "Valid Component")
+
+
 
     def test_bulk_update_accepts_valid_data(self):
         component = self.create_component(
@@ -671,3 +737,4 @@ class ComponentIntegrityTests(TestCase):
                     getattr(component, field),
                     original_value,
                 )
+
