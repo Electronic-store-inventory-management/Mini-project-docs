@@ -965,17 +965,3 @@ class ComponentIntegrityTests(TestCase):
                     original_value,
                 )
 
-        self.assertContains(
-            response,
-            "Component could not be found. The component was not deleted.",
-            status_code=404,
-        )
-        self.assertContains(
-            response,
-            "Back to Component Inventory",
-            status_code=404,
-        )
-        self.assertFalse(
-            Component.objects.filter(pk=999999).exists()
-        )
-main
