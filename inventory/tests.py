@@ -272,7 +272,6 @@ class ComponentAddTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-
         self.assertEqual(
             Component.objects.filter(component_id="DUP001").count(),
             1,
@@ -337,7 +336,6 @@ class ComponentAddTests(TestCase):
         self.assertFalse(
             Component.objects.filter(component_id="NEG001").exists()
         )
-
         self.assertContains(response, "Quantity cannot be negative")
 
     def test_add_component_negative_price(self):
@@ -661,6 +659,16 @@ class DeleteComponentViewTests(TestCase):
         self.assertContains(
             response,
             "Component could not be found. The component was not deleted.",
+        )
+
+        response = self.client.get(
+            reverse("inventory:delete_component", args=[999999])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(
+            response,
+            "Component could not be found. The component was not deleted.",
             status_code=404,
         )
         self.assertContains(
@@ -970,4 +978,3 @@ class ComponentIntegrityTests(TestCase):
                     getattr(component, field),
                     original_value,
                 )
-
