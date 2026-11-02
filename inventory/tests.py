@@ -511,6 +511,7 @@ class ComponentIntegrityTests(TestCase):
                 with self.assertRaises(ValidationError):
                     component.save()
 
+
     def test_existing_record_remains_unchanged_after_other_record_operations(self):
         original = self.create_component(
             component_id="KEEP001",
@@ -518,20 +519,23 @@ class ComponentIntegrityTests(TestCase):
             quantity=25,
         )
 
-        self.create_component(
+        second = self.create_component(
             component_id="NEW002",
-            name="New Component",
+            name="Second Component",
+            quantity=10,
         )
 
-        new_component = Component.objects.get(component_id="NEW002")
-        new_component.delete()
+        second.name = "Updated Second Component"
+        second.quantity = 50
+        second.save()
+
         original.refresh_from_db()
+        second.refresh_from_db()
 
         self.assertEqual(original.name, "Original Component")
         self.assertEqual(original.quantity, 25)
-        self.assertTrue(
-            Component.objects.filter(component_id="KEEP001").exists()
-        )
+        self.assertEqual(second.name, "Updated Second Component")
+        self.assertEqual(second.quantity, 50)
 
     def test_bulk_create_inserts_100_inventory_records(self):
         components = [
@@ -616,3 +620,54 @@ class ComponentIntegrityTests(TestCase):
         component.refresh_from_db()
         self.assertEqual(updated_count, 1)
         self.assertEqual(component.quantity, 25)
+
+    def test_bulk_update_rejects_negative_numeric_values(self):
+        invalid_values = [
+            ("quantity", -1),
+            ("unit_price", "-1.00"),
+            ("minimum_stock_level", -1),
+        ]
+
+        for index, (field, value) in enumerate(invalid_values):
+            with self.subTest(field=field):
+                component = self.create_component(
+                    component_id=f"NEG_BULK_{index}",
+                )
+                setattr(component, field, value)
+
+                with self.assertRaises(ValidationError):
+                    Component.objects.bulk_update(
+                        [component],
+                        [field],
+                    )
+
+                component.refresh_from_db()
+                self.assertGreaterEqual(getattr(component, field), 0)
+
+    def test_queryset_update_rejects_negative_numeric_values(self):
+        from django.db import IntegrityError, transaction
+
+        invalid_values = [
+            ("quantity", -1),
+            ("unit_price", "-1.00"),
+            ("minimum_stock_level", -1),
+        ]
+
+        for index, (field, value) in enumerate(invalid_values):
+            with self.subTest(field=field):
+                component = self.create_component(
+                    component_id=f"NEG_UPDATE_{index}",
+                )
+                original_value = getattr(component, field)
+
+                with self.assertRaises(IntegrityError):
+                    with transaction.atomic():
+                        Component.objects.filter(
+                            pk=component.pk
+                        ).update(**{field: value})
+
+                component.refresh_from_db()
+                self.assertEqual(
+                    getattr(component, field),
+                    original_value,
+                )

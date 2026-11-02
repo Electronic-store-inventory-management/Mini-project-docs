@@ -7,13 +7,28 @@ from django.db.models import Q
 class ComponentQuerySet(models.QuerySet):
     """QuerySet methods that preserve Component validation."""
 
-    def bulk_create(self, objs, **kwargs):
+    def bulk_create(
+        self,
+        objs,
+        batch_size=None,
+        ignore_conflicts=False,
+        update_conflicts=False,
+        update_fields=None,
+        unique_fields=None,
+    ):
         objs = list(objs)
 
         for obj in objs:
             obj.full_clean()
 
-        return super().bulk_create(objs, **kwargs)
+        return super().bulk_create(
+            objs,
+            batch_size=batch_size,
+            ignore_conflicts=ignore_conflicts,
+            update_conflicts=update_conflicts,
+            update_fields=update_fields,
+            unique_fields=unique_fields,
+        )
 
     def bulk_update(self, objs, fields, batch_size=None):
         objs = list(objs)
@@ -83,10 +98,7 @@ class Component(models.Model):
         if self.quantity is not None and self.quantity < 0:
             errors["quantity"] = "Quantity cannot be negative."
 
-        if (
-            self.minimum_stock_level is not None
-            and self.minimum_stock_level < 0
-        ):
+        if self.minimum_stock_level is not None and self.minimum_stock_level < 0:
             errors["minimum_stock_level"] = (
                 "Minimum stock level cannot be negative."
             )
