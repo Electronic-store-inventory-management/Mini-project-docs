@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Availability Report</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f3f5f9;
+            color: #202938;
+        }
+        header {
+            background: #172554;
+            color: white;
+            padding: 24px 6%;
+        }
+        nav {
+            background: white;
+            padding: 16px 6%;
+        }
+        nav a {
+            color: #1d4ed8;
+            text-decoration: none;
+            font-weight: bold;
+            margin-right: 20px;
+        }
+        main {
+            max-width: 1400px;
+            margin: 28px auto;
+            padding: 0 20px;
+        }
+        .panel {
+            background: white;
+            padding: 22px;
+            margin-bottom: 22px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+        form {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: end;
+            gap: 12px;
+        }
+        label {
+            display: block;
+            margin-bottom: 7px;
+            font-weight: bold;
+        }
+        select, button, .export {
+            padding: 11px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+        }
+        button {
+            background: #1d4ed8;
+            color: white;
+            cursor: pointer;
+        }
+        .export {
+            background: #15803d;
+            color: white;
+            text-decoration: none;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        th, td {
+            text-align: left;
+            padding: 13px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f8fafc;
+        }
+        @media (max-width: 600px) {
+            main {
+                padding: 0 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Availability Report</h1>
+        <p>Electronics Store Inventory Management System</p>
+    </header>
+
+    <nav>
+        <a href="{% url 'dashboard:home' %}">Dashboard</a>
+        <a href="{% url 'reports:availability' %}">Availability Report</a>
+        <a href="{% url 'inventory:landing' %}">Component Inventory</a>
+        <a href="{% url 'admin:index' %}">Admin</a>
+    </nav>
+
+    <main>
+        <section class="panel">
+            <h2>Filter Components</h2>
+
+            <form method="get">
+                <div>
+                    <label for="category">Category</label>
+                    <select name="category" id="category">
+                        <option value="">All categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}"
+                            {% if selected_category == category %}selected{% endif %}>
+                            {{ category }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="status">Availability Status</label>
+                    <select name="status" id="status">
+                        <option value="">All statuses</option>
+                        <option value="Available"
+                            {% if selected_status == "Available" %}selected{% endif %}>
+                            Available
+                        </option>
+                        <option value="Low Stock"
+                            {% if selected_status == "Low Stock" %}selected{% endif %}>
+                            Low Stock
+                        </option>
+                        <option value="Out of Stock"
+                            {% if selected_status == "Out of Stock" %}selected{% endif %}>
+                            Out of Stock
+                        </option>
+                    </select>
+                </div>
+
+                <button type="submit">Apply Filters</button>
+
+                <button type="submit" name="export" value="csv">
+                    Export CSV
+                </button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Component Availability</h2>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component ID</th>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Manufacturer</th>
+                            <th>Quantity</th>
+                            <th>Minimum Stock</th>
+                            <th>Status</th>
+                            <th>Unit Price</th>
+                            <th>Supplier</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for component in components %}
+                        <tr>
+                            <td>{{ component.component_id }}</td>
+                            <td>{{ component.name }}</td>
+                            <td>{{ component.category }}</td>
+                            <td>{{ component.manufacturer }}</td>
+                            <td>{{ component.quantity }}</td>
+                            <td>{{ component.minimum_stock_level }}</td>
+                            <td>{{ component.availability_status }}</td>
+                            <td>{{ component.unit_price }}</td>
+                            <td>{{ component.supplier }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9">
+                                No components match these filters.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

@@ -1,6 +1,5 @@
 
 from django.contrib import admin
-
 from .models import Component
 
 
@@ -10,9 +9,21 @@ class ComponentAdmin(admin.ModelAdmin):
         "component_id",
         "name",
         "category",
+        "manufacturer",
         "quantity",
         "minimum_stock_level",
+        "unit_price",
+        "supplier",
         "availability_status",
     )
-    search_fields = ("component_id", "name", "manufacturer")
-    list_filter = ("category",)
+
+    search_fields = (
+        "component_id",
+        "name",
+        "category",
+        "manufacturer",
+        "supplier",
+    )
+
+    list_filter = ("category", "manufacturer")
+    ordering = ("name",)

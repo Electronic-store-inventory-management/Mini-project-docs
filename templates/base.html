@@ -1,3 +1,4 @@
+
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -11,8 +12,12 @@
 <body>
     <header>
         <nav class="navbar" aria-label="Main Navigation">
+
             <a href="{% url 'inventory:landing' %}" class="navbar-brand">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true">
                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                     <line x1="8" y1="21" x2="16" y2="21"></line>
                     <line x1="12" y1="17" x2="12" y2="21"></line>
@@ -22,26 +27,62 @@
 
             <ul class="navbar-nav">
                 {% if user.is_authenticated %}
-                <li><a href="{% url 'inventory:component-list' %}" class="nav-link">Component Inventory</a></li>
-                <li><a href="{% url 'inventory:component-add' %}" class="nav-link">Add Component</a></li>
-                <li><a href="{% url 'inventory:availability' %}" class="nav-link">Availability</a></li>
-                <li><a href="{% url 'inventory:low_stock' %}" class="nav-link">Low Stock</a></li>
+
+                    <li>
+                        <a href="{% url 'inventory:component-list' %}" class="nav-link">
+                            Component Inventory
+                        </a>
+                    </li>
+
+                    {% if user.is_admin_role %}
+                    <li>
+                        <a href="{% url 'inventory:component-add' %}" class="nav-link">
+                            Add Component
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <li>
+                        <a href="{% url 'inventory:availability' %}" class="nav-link">
+                            Availability
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'inventory:low_stock' %}" class="nav-link">
+                            Low Stock
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'inventory:out_of_stock' %}" class="nav-link">
+                            Out of Stock
+                        </a>
+                    </li>
+
                     <li class="navbar-user">
                         <span>Signed in as <strong>{{ user.username }}</strong></span>
-                        <span class="role-badge role-{{ user.role|lower }}">{{ user.get_role_display }}</span>
+                        <span class="role-badge role-{{ user.role|lower }}">
+                            {{ user.get_role_display }}
+                        </span>
                     </li>
+
                     <li>
-                        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                        <form method="post" action="{% url 'logout' %}" class="logout-form">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-outline" aria-label="Log out of application">Log Out</button>
+                            <button type="submit" class="btn btn-outline">
+                                Log Out
+                            </button>
                         </form>
                     </li>
+
                 {% else %}
                     <li>
                         <a href="{% url 'login' %}" class="btn btn-outline">Log In</a>
                     </li>
                 {% endif %}
             </ul>
+
         </nav>
     </header>
 
@@ -60,10 +101,12 @@
     </main>
 
     <footer>
-        <p>&copy; 2026 Electronics Store Inventory Management System &bull; Layered Architecture (Django MVT)</p>
+        <p>
+            &copy; 2026 Electronics Store Inventory Management System
+            &bull; Layered Architecture (Django MVT)
+        </p>
     </footer>
 
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-
