@@ -1,6 +1,8 @@
-
+﻿
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.core.exceptions import ValidationError
+from django.db import connection
 from django.urls import reverse
 
 from .forms import ComponentForm
@@ -270,7 +272,6 @@ class ComponentAddTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-
         self.assertEqual(
             Component.objects.filter(component_id="DUP001").count(),
             1,
@@ -335,7 +336,6 @@ class ComponentAddTests(TestCase):
         self.assertFalse(
             Component.objects.filter(component_id="NEG001").exists()
         )
-
         self.assertContains(response, "Quantity cannot be negative")
 
     def test_add_component_negative_price(self):
@@ -649,6 +649,9 @@ class DeleteComponentViewTests(TestCase):
         self.assertTrue(
             Component.objects.filter(pk=self.component.pk).exists()
         )
+
+
+    def test_delete_nonexistent_component(self):
         self.client.force_login(self.user)
 
         response = self.client.get(
@@ -669,3 +672,302 @@ class DeleteComponentViewTests(TestCase):
         self.assertFalse(
             Component.objects.filter(pk=999999).exists()
         )
+
+class ComponentIntegrityTests(TestCase):
+    def create_component(self, component_id="TEST001", **overrides):
+        data = {
+            "component_id": component_id,
+            "name": "Test Component",
+            "category": "Electronics",
+            "manufacturer": "Test Manufacturer",
+            "quantity": 10,
+            "unit_price": "10.00",
+            "supplier": "Test Supplier",
+            "minimum_stock_level": 5,
+        }
+        data.update(overrides)
+        return Component.objects.create(**data)
+
+    def test_whitespace_only_text_fields_are_rejected(self):
+        text_fields = [
+            "component_id",
+            "name",
+            "category",
+            "manufacturer",
+            "supplier",
+        ]
+
+        for field in text_fields:
+            with self.subTest(field=field):
+                data = {
+                    "component_id": "SPACE001",
+                    "name": "Valid Component",
+                    "category": "Electronics",
+                    "manufacturer": "Test Manufacturer",
+                    "supplier": "Test Supplier",
+                    "quantity": 10,
+                    "unit_price": "10.00",
+                    "minimum_stock_level": 5,
+                }
+                data[field] = "   "
+                component = Component(**data)
+
+                with self.assertRaises(ValidationError):
+                    component.save()
+
+                self.assertFalse(
+                    Component.objects.filter(
+                        component_id="SPACE001"
+                    ).exists()
+                )
+
+    def test_negative_values_are_rejected_by_model(self):
+        invalid_values = [
+            {"quantity": -1},
+            {"unit_price": "-1.00"},
+            {"minimum_stock_level": -1},
+        ]
+
+        for index, values in enumerate(invalid_values):
+            with self.subTest(values=values):
+                component = Component(
+                    component_id=f"INVALID{index}",
+                    name="Valid Component",
+                    category="Electronics",
+                    manufacturer="Test Manufacturer",
+                    quantity=10,
+                    unit_price="10.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=5,
+                )
+
+                for field, value in values.items():
+                    setattr(component, field, value)
+
+                with self.assertRaises(ValidationError):
+                    component.save()
+
+    def test_existing_record_remains_unchanged_after_other_record_operations(self):
+        original = self.create_component(
+            component_id="KEEP001",
+            name="Original Component",
+            quantity=25,
+        )
+
+        second = self.create_component(
+            component_id="NEW002",
+            name="Second Component",
+            quantity=10,
+        )
+
+        second.name = "Updated Second Component"
+        second.quantity = 50
+        second.save()
+
+        original.refresh_from_db()
+        second.refresh_from_db()
+
+        self.assertEqual(original.name, "Original Component")
+        self.assertEqual(original.quantity, 25)
+        self.assertEqual(second.name, "Updated Second Component")
+        self.assertEqual(second.quantity, 50)
+
+    def test_bulk_create_inserts_100_inventory_records(self):
+        components = [
+            Component(
+                component_id=f"BULK{i:04d}",
+                name=f"Component {i}",
+                category="Electronics",
+                manufacturer="Test Manufacturer",
+                quantity=100,
+                unit_price="5.00",
+                supplier="Test Supplier",
+                minimum_stock_level=10,
+            )
+            for i in range(100)
+        ]
+
+        Component.objects.bulk_create(components)
+
+        self.assertEqual(
+            Component.objects.filter(
+                component_id__startswith="BULK"
+            ).count(),
+            100,
+        )
+
+    def test_bulk_create_rejects_whitespace_only_fields(self):
+        component = Component(
+            component_id="BULK001",
+            name="   ",
+            category="Electronics",
+            manufacturer="Test Manufacturer",
+            quantity=10,
+            unit_price="5.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        with self.assertRaises(ValidationError):
+            Component.objects.bulk_create([component])
+
+        self.assertFalse(
+            Component.objects.filter(component_id="BULK001").exists()
+        )
+
+    def test_bulk_create_ignore_conflicts(self):
+        self.create_component(
+            component_id="CONFLICT001",
+            name="Original Component",
+        )
+
+        duplicate = Component(
+            component_id="CONFLICT001",
+            name="Duplicate Component",
+            category="Electronics",
+            manufacturer="Test Manufacturer",
+            quantity=20,
+            unit_price="5.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        Component.objects.bulk_create(
+            [duplicate],
+            ignore_conflicts=True,
+        )
+
+        existing = Component.objects.get(
+            component_id="CONFLICT001"
+        )
+        self.assertEqual(existing.name, "Original Component")
+
+    def test_bulk_create_update_conflicts(self):
+        self.create_component(
+            component_id="CONFLICT002",
+            name="Original Component",
+        )
+
+        updated = Component(
+            component_id="CONFLICT002",
+            name="Updated Component",
+            category="Electronics",
+            manufacturer="Test Manufacturer",
+            quantity=30,
+            unit_price="8.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        conflict_options = {
+            "update_conflicts": True,
+            "update_fields": ["name", "quantity", "unit_price"],
+        }
+
+        if connection.features.supports_update_conflicts_with_target:
+            conflict_options["unique_fields"] = ["component_id"]
+
+        Component.objects.bulk_create(
+            [updated],
+            **conflict_options,
+        )
+
+        existing = Component.objects.get(
+            component_id="CONFLICT002"
+        )
+        self.assertEqual(existing.name, "Updated Component")
+        self.assertEqual(existing.quantity, 30)
+        self.assertEqual(existing.unit_price, 8)
+    def test_bulk_update_rejects_whitespace_only_fields(self):
+        component = self.create_component(
+            component_id="BULK002",
+            name="Valid Component",
+        )
+        component.name = "   "
+
+        with self.assertRaises(ValidationError):
+            Component.objects.bulk_update([component], ["name"])
+
+        component.refresh_from_db()
+        self.assertEqual(component.name, "Valid Component")
+
+    def test_queryset_update_rejects_whitespace_only_fields(self):
+        component = self.create_component(
+            component_id="BULK003",
+            name="Valid Component",
+        )
+
+        with self.assertRaises(ValidationError):
+            Component.objects.filter(pk=component.pk).update(name="   ")
+
+        component.refresh_from_db()
+        self.assertEqual(component.name, "Valid Component")
+
+
+
+    def test_bulk_update_accepts_valid_data(self):
+        component = self.create_component(
+            component_id="BULK004",
+            quantity=10,
+        )
+        component.quantity = 25
+
+        updated_count = Component.objects.bulk_update(
+            [component],
+            ["quantity"],
+        )
+
+        component.refresh_from_db()
+        self.assertEqual(updated_count, 1)
+        self.assertEqual(component.quantity, 25)
+
+    def test_bulk_update_rejects_negative_numeric_values(self):
+        invalid_values = [
+            ("quantity", -1),
+            ("unit_price", "-1.00"),
+            ("minimum_stock_level", -1),
+        ]
+
+        for index, (field, value) in enumerate(invalid_values):
+            with self.subTest(field=field):
+                component = self.create_component(
+                    component_id=f"NEG_BULK_{index}",
+                )
+                setattr(component, field, value)
+
+                with self.assertRaises(ValidationError):
+                    Component.objects.bulk_update(
+                        [component],
+                        [field],
+                    )
+
+                component.refresh_from_db()
+                self.assertGreaterEqual(getattr(component, field), 0)
+
+    def test_queryset_update_rejects_negative_numeric_values(self):
+        from django.db import IntegrityError, transaction
+
+        invalid_values = [
+            ("quantity", -1),
+            ("unit_price", "-1.00"),
+            ("minimum_stock_level", -1),
+        ]
+
+        for index, (field, value) in enumerate(invalid_values):
+            with self.subTest(field=field):
+                component = self.create_component(
+                    component_id=f"NEG_UPDATE_{index}",
+                )
+                original_value = getattr(component, field)
+
+                with self.assertRaises(IntegrityError):
+                    with transaction.atomic():
+                        Component.objects.filter(
+                            pk=component.pk
+                        ).update(**{field: value})
+
+                component.refresh_from_db()
+                self.assertEqual(
+                    getattr(component, field),
+                    original_value,
+                )
