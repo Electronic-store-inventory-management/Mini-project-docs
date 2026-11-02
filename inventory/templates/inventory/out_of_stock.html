@@ -1,27 +1,47 @@
 
-<h1>{{ page_title }}</h1>
+{% extends 'base.html' %}
 
-{% if components %}
-<table>
-    <thead>
-        <tr>
-            <th>Component</th>
-            <th>Quantity</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for component in components %}
-        <tr>
-            <td>{{ component }}</td>
-            <td>{{ component.quantity }}</td>
-            <td><strong>Out of Stock</strong></td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>There are currently no out-of-stock components.</p>
-{% endif %}
+{% block title %}Out of Stock Components | Electronics Inventory{% endblock %}
 
-<p><a href="{% url 'inventory:availability' %}">View all component availability</a></p>
+{% block content %}
+
+<div class="card">
+    <h1>{{ page_title|default:"Out-of-Stock Components" }}</h1>
+
+    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+        Components that are currently unavailable in the inventory.
+    </p>
+
+    {% if components %}
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Quantity</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for component in components %}
+                <tr>
+                    <td>{{ component }}</td>
+                    <td>{{ component.quantity }}</td>
+                    <td><strong>Out of Stock</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>There are currently no out-of-stock components.</p>
+    {% endif %}
+
+    <div style="margin-top: 1.5rem;">
+        <a href="{% url 'inventory:availability' %}" class="btn btn-primary">
+            View Component Availability
+        </a>
+    </div>
+</div>
+
+{% endblock %}

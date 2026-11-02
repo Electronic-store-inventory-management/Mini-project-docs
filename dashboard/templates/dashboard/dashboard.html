@@ -1,0 +1,218 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f3f5f9;
+            color: #202938;
+        }
+
+        header {
+            background: #172554;
+            color: white;
+            padding: 22px 7%;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+        }
+
+        header p {
+            margin: 0;
+            color: #cbd5e1;
+        }
+
+        nav {
+            background: white;
+            padding: 15px 7%;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        nav a {
+            color: #1d4ed8;
+            text-decoration: none;
+            margin-right: 22px;
+            font-weight: bold;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 18px;
+            margin: 24px 0 32px;
+        }
+
+        .card,
+        .panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 22px;
+        }
+
+        .card h3 {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0 0 14px;
+        }
+
+        .number {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .warning {
+            color: #b45309;
+        }
+
+        .danger {
+            color: #dc2626;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 13px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f8fafc;
+            color: #475569;
+        }
+
+        .empty {
+            color: #64748b;
+            padding: 18px 0;
+        }
+
+        @media (max-width: 600px) {
+            header,
+            nav {
+                padding: 18px 5%;
+            }
+
+            nav a {
+                display: inline-block;
+                margin-bottom: 10px;
+            }
+
+            main {
+                padding: 0 12px;
+            }
+
+            th,
+            td {
+                padding: 10px 6px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Inventory Dashboard</h1>
+        <p>Electronics Store Inventory Management System</p>
+    </header>
+
+    <nav>
+        <a href="{% url 'dashboard:home' %}">Dashboard</a>
+        <a href="{% url 'reports:availability' %}">Availability Report</a>
+        <a href="{% url 'inventory:landing' %}">Component Inventory</a>
+        <a href="{% url 'admin:index' %}">Admin</a>
+    </nav>
+
+    <main>
+        <h2>Inventory Overview</h2>
+        <p>Current inventory statistics from the database.</p>
+
+        <section class="cards">
+            <div class="card">
+                <h3>Total Components</h3>
+                <div class="number">{{ total_components }}</div>
+            </div>
+
+            <div class="card">
+                <h3>Total Units in Stock</h3>
+                <div class="number">{{ total_stock }}</div>
+            </div>
+
+            <div class="card">
+                <h3>Low-Stock Components</h3>
+                <div class="number warning">{{ low_stock_count }}</div>
+            </div>
+
+            <div class="card">
+                <h3>Out-of-Stock Components</h3>
+                <div class="number danger">{{ out_of_stock_count }}</div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Category-wise Inventory</h2>
+
+            {% if category_summary %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Components</th>
+                            <th>Total Quantity</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for item in category_summary %}
+                        <tr>
+                            <td>{{ item.category }}</td>
+                            <td>{{ item.component_count }}</td>
+                            <td>{{ item.total_quantity|default_if_none:0 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="empty">
+                No inventory records found. Add components through the admin panel.
+            </p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>
