@@ -251,6 +251,61 @@ class AvailabilityReportTests(TestCase):
     },
 )
 class SystemAvailabilityTests(TestCase):
+    def test_recovery_outside_operating_hours_resolves_incident(self):
+        incident = AvailabilityIncident.objects.create(
+            started_at=FIXED_NOW,
+            failure_reason="Test failure",
+        )
+
+        recovery_time = datetime(
+            2026, 11, 2, 22, 0, tzinfo=TEST_TZ
+        )
+
+        with patch(
+            "reports.services.timezone.now",
+            return_value=recovery_time,
+        ):
+            record_availability_check(is_available=True)
+
+        incident.refresh_from_db()
+
+        self.assertEqual(incident.ended_at, recovery_time)
+
+    def test_overlapping_incidents_are_not_double_counted(self):
+        start = datetime(
+            2026, 11, 2, 9, 0, tzinfo=TEST_TZ
+        )
+
+        end = datetime(
+            2026, 11, 11, 0, 0, tzinfo=TEST_TZ
+        )
+
+        AvailabilityIncident.objects.create(
+            started_at=start,
+            ended_at=start + timedelta(hours=1),
+            failure_reason="First incident",
+        )
+
+        AvailabilityIncident.objects.create(
+            started_at=start + timedelta(minutes=30),
+            ended_at=start + timedelta(minutes=90),
+            failure_reason="Second incident",
+        )
+
+        result = calculate_availability(
+            start,
+            datetime(2026, 11, 2, 11, 0, tzinfo=TEST_TZ),
+        )
+
+        self.assertEqual(
+            result["downtime_seconds"],
+            5400,
+        )
+
+        self.assertEqual(
+            result["availability_percentage"],
+            25.0,
+        )
 
     def test_operating_hours(self):
         monday = datetime(2026, 11, 2, 10, 0, tzinfo=TEST_TZ)

@@ -103,28 +103,36 @@ def record_availability_check(is_available, failure_reason=""):
         failure_reason=failure_reason,
     )
 
-    if not is_operating_time(checked_at):
-        return check
-
-    if is_maintenance_time(checked_at):
-        return check
-
+    # Find any existing unresolved incident.
     open_incident = AvailabilityIncident.objects.filter(
         ended_at__isnull=True
     ).first()
 
-    if not is_available:
-        if not open_incident:
-            AvailabilityIncident.objects.create(
-                started_at=checked_at,
-                failure_reason=(
-                    failure_reason or "System unavailable"
-                ),
-            )
+    # A successful check resolves an existing incident
+    # regardless of operating hours or maintenance.
+    if is_available:
+        if open_incident:
+            open_incident.ended_at = checked_at
+            open_incident.save(update_fields=["ended_at"])
 
-    elif open_incident:
-        open_incident.ended_at = checked_at
-        open_incident.save(update_fields=["ended_at"])
+        return check
+
+    # New failures are recorded only during operating hours.
+    if not is_operating_time(checked_at):
+        return check
+
+    # Planned maintenance is excluded from incident creation.
+    if is_maintenance_time(checked_at):
+        return check
+
+    # Create a new incident only if one is not already open.
+    if not open_incident:
+        AvailabilityIncident.objects.create(
+            started_at=checked_at,
+            failure_reason=(
+                failure_reason or "System unavailable"
+            ),
+        )
 
     return check
 
