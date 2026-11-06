@@ -1,4 +1,4 @@
-﻿
+import time
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.core.exceptions import ValidationError
@@ -970,4 +970,81 @@ class ComponentIntegrityTests(TestCase):
                 self.assertEqual(
                     getattr(component, field),
                     original_value,
+                )
+
+
+class InventoryResponseTimeTests(TestCase):
+    """
+    Application-level response-time tests.
+
+    Measures Django test-client request processing time.
+    These tests do not measure complete production network latency.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="performance_test_user",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+        # Representative inventory records.
+        Component.objects.create(
+            component_id="PERF001",
+            name="Performance Capacitor",
+            category="Passive Components",
+            manufacturer="Test Manufacturer",
+            quantity=20,
+            unit_price="5.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        Component.objects.create(
+            component_id="PERF002",
+            name="Performance Resistor",
+            category="Passive Components",
+            manufacturer="Test Manufacturer",
+            quantity=3,
+            unit_price="2.50",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        Component.objects.create(
+            component_id="PERF003",
+            name="Performance LED",
+            category="Optoelectronic Components",
+            manufacturer="Test Manufacturer",
+            quantity=0,
+            unit_price="3.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+    def test_inventory_pages_respond_within_three_seconds(self):
+        self.client.force_login(self.user)
+
+        pages = [
+            reverse("inventory:component-list"),
+            reverse("inventory:availability"),
+            reverse("inventory:low_stock"),
+            reverse("inventory:out_of_stock"),
+        ]
+
+        for page in pages:
+            with self.subTest(page=page):
+                start_time = time.perf_counter()
+
+                response = self.client.get(page)
+
+                elapsed_time = time.perf_counter() - start_time
+
+                self.assertEqual(response.status_code, 200)
+
+                self.assertLess(
+                    elapsed_time,
+                    3.0,
+                    f"{page} took {elapsed_time:.3f} seconds",
                 )
