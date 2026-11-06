@@ -207,3 +207,134 @@ class AvailabilityReportTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/login/", response.url)
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+from django.test import override_settings
+from django.utils import timezone
+
+from reports.models import (
+    AvailabilityCheck,
+    AvailabilityIncident,
+    MaintenanceWindow,
+)
+
+from reports.services import (
+    calculate_availability,
+    is_operating_time,
+    record_availability_check,
+)
+
+
+@override_settings(
+    SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
+    SYSTEM_OPERATING_HOURS={
+        0: ("09:00", "21:00"),
+        1: ("09:00", "21:00"),
+        2: ("09:00", "21:00"),
+        3: ("09:00", "21:00"),
+        4: ("09:00", "21:00"),
+        5: ("09:00", "21:00"),
+        6: None,
+    },
+)
+class SystemAvailabilityTests(TestCase):
+
+    def test_operating_hours(self):
+        tz = ZoneInfo("Asia/Kolkata")
+
+        monday = datetime(2026, 11, 2, 10, 0, tzinfo=tz)
+        sunday = datetime(2026, 11, 8, 10, 0, tzinfo=tz)
+
+        self.assertTrue(is_operating_time(monday))
+        self.assertFalse(is_operating_time(sunday))
+
+    def test_maintenance_period_is_excluded(self):
+        tz = ZoneInfo("Asia/Kolkata")
+
+        start = datetime(2026, 11, 2, 9, 0, tzinfo=tz)
+        end = datetime(2026, 11, 2, 12, 0, tzinfo=tz)
+
+        MaintenanceWindow.objects.create(
+            description="Planned maintenance",
+            start_at=start + timedelta(hours=1),
+            end_at=start + timedelta(hours=2),
+        )
+
+        result = calculate_availability(start, end)
+
+        self.assertEqual(
+            result["total_operating_seconds"], 10800
+        )
+        self.assertEqual(
+            result["maintenance_seconds"], 3600
+        )
+        self.assertEqual(
+            result["eligible_seconds"], 7200
+        )
+
+    def test_failure_is_recorded(self):
+        record_availability_check(
+            is_available=False,
+            failure_reason="Test server failure",
+        )
+
+        self.assertEqual(AvailabilityCheck.objects.count(), 1)
+        self.assertEqual(AvailabilityIncident.objects.count(), 1)
+
+        incident = AvailabilityIncident.objects.first()
+
+        self.assertEqual(
+            incident.failure_reason,
+            "Test server failure",
+        )
+        self.assertIsNone(incident.ended_at)
+
+    def test_recovery_resolves_incident(self):
+        now = timezone.now()
+
+        incident = AvailabilityIncident.objects.create(
+            started_at=now - timedelta(minutes=5),
+            failure_reason="Test failure",
+        )
+
+        record_availability_check(is_available=True)
+
+        incident.refresh_from_db()
+
+        self.assertIsNotNone(incident.ended_at)
+
+    def test_maintenance_failure_does_not_create_incident(self):
+        now = timezone.now()
+
+        MaintenanceWindow.objects.create(
+            description="Current maintenance",
+            start_at=now - timedelta(minutes=5),
+            end_at=now + timedelta(minutes=5),
+        )
+
+        record_availability_check(
+            is_available=False,
+            failure_reason="Maintenance test",
+        )
+
+        self.assertEqual(AvailabilityCheck.objects.count(), 1)
+        self.assertEqual(AvailabilityIncident.objects.count(), 0)
+
+    def test_availability_percentage(self):
+        tz = ZoneInfo("Asia/Kolkata")
+
+        start = datetime(2026, 11, 2, 9, 0, tzinfo=tz)
+        end = datetime(2026, 11, 2, 11, 0, tzinfo=tz)
+
+        AvailabilityIncident.objects.create(
+            started_at=start,
+            ended_at=start + timedelta(minutes=30),
+            failure_reason="Test downtime",
+        )
+
+        result = calculate_availability(start, end)
+
+        self.assertEqual(
+            result["availability_percentage"], 75.0
+        )

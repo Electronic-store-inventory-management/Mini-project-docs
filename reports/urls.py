@@ -1,3 +1,4 @@
+
 from django.urls import path
 from . import views
 
@@ -8,5 +9,10 @@ urlpatterns = [
         "availability/",
         views.availability_report,
         name="availability",
+    ),
+    path(
+        "health/",
+        views.health_check,
+        name="health",
     ),
 ]
