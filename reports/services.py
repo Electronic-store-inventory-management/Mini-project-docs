@@ -2,7 +2,7 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import (
@@ -13,7 +13,7 @@ from .models import (
 
 
 def get_availability_timezone():
-    """Return the configured system availability timezone."""
+    """Return the configured availability timezone."""
     return ZoneInfo(
         getattr(
             settings,
@@ -23,10 +23,48 @@ def get_availability_timezone():
     )
 
 
+def merge_intervals(intervals):
+    """Merge overlapping or adjacent datetime intervals."""
+
+    valid_intervals = sorted(
+        (start, end)
+        for start, end in intervals
+        if start < end
+    )
+
+    if not valid_intervals:
+        return []
+
+    merged = [valid_intervals[0]]
+
+    for start, end in valid_intervals[1:]:
+        previous_start, previous_end = merged[-1]
+
+        if start <= previous_end:
+            merged[-1] = (
+                previous_start,
+                max(previous_end, end),
+            )
+        else:
+            merged.append((start, end))
+
+    return merged
+
+
+def interval_seconds(intervals):
+    """Calculate total seconds across non-overlapping intervals."""
+
+    return sum(
+        (end - start).total_seconds()
+        for start, end in intervals
+    )
+
+
 def is_operating_time(moment):
-    """Check whether the given time falls within store operating hours."""
+    """Check whether the given time is within store operating hours."""
 
     local_time = moment.astimezone(get_availability_timezone())
+
     hours = settings.SYSTEM_OPERATING_HOURS.get(
         local_time.weekday()
     )
@@ -35,6 +73,7 @@ def is_operating_time(moment):
         return False
 
     opening, closing = hours
+
     current_time = local_time.time().replace(tzinfo=None)
 
     return (
@@ -64,11 +103,9 @@ def record_availability_check(is_available, failure_reason=""):
         failure_reason=failure_reason,
     )
 
-    # Ignore failures outside operating hours.
     if not is_operating_time(checked_at):
         return check
 
-    # Planned maintenance is excluded from failure tracking.
     if is_maintenance_time(checked_at):
         return check
 
@@ -94,10 +131,10 @@ def record_availability_check(is_available, failure_reason=""):
 
 def calculate_availability(start_at, end_at):
     """
-    Calculate system availability during operating hours.
+    Calculate availability during operating hours.
 
-    Planned maintenance is excluded from eligible operating time
-    and from downtime.
+    Overlapping maintenance and incident intervals are merged
+    to prevent double counting.
     """
 
     if start_at >= end_at:
@@ -154,40 +191,40 @@ def calculate_availability(start_at, end_at):
                     period_end - period_start
                 ).total_seconds()
 
-                maintenance_windows = list(
-                    MaintenanceWindow.objects.filter(
-                        is_active=True,
-                        start_at__lt=period_end,
-                        end_at__gt=period_start,
-                    )
+                # Merge overlapping maintenance intervals.
+                maintenance_windows = MaintenanceWindow.objects.filter(
+                    is_active=True,
+                    start_at__lt=period_end,
+                    end_at__gt=period_start,
                 )
 
-                # Calculate planned maintenance overlap.
-                for maintenance in maintenance_windows:
-
-                    overlap_start = max(
-                        period_start,
-                        maintenance.start_at.astimezone(tz),
+                maintenance_intervals = merge_intervals([
+                    (
+                        max(
+                            period_start,
+                            maintenance.start_at.astimezone(tz),
+                        ),
+                        min(
+                            period_end,
+                            maintenance.end_at.astimezone(tz),
+                        ),
                     )
+                    for maintenance in maintenance_windows
+                ])
 
-                    overlap_end = min(
-                        period_end,
-                        maintenance.end_at.astimezone(tz),
-                    )
+                maintenance_seconds += interval_seconds(
+                    maintenance_intervals
+                )
 
-                    if overlap_start < overlap_end:
-
-                        maintenance_seconds += (
-                            overlap_end - overlap_start
-                        ).total_seconds()
-
-                # Find incidents overlapping this operating period.
+                # Find incidents overlapping the operating period.
                 incidents = AvailabilityIncident.objects.filter(
                     started_at__lt=period_end,
                 ).filter(
-                    models.Q(ended_at__isnull=True)
-                    | models.Q(ended_at__gt=period_start)
+                    Q(ended_at__isnull=True)
+                    | Q(ended_at__gt=period_start)
                 )
+
+                incident_intervals = []
 
                 for incident in incidents:
 
@@ -206,30 +243,50 @@ def calculate_availability(start_at, end_at):
                     )
 
                     if incident_start < incident_end:
+                        incident_intervals.append(
+                            (incident_start, incident_end)
+                        )
 
-                        downtime_seconds += (
-                            incident_end - incident_start
-                        ).total_seconds()
+                # Merge overlapping incidents to avoid double counting.
+                merged_incidents = merge_intervals(
+                    incident_intervals
+                )
 
-                        # Exclude only the downtime that overlaps
-                        # planned maintenance.
-                        for maintenance in maintenance_windows:
+                downtime_seconds += interval_seconds(
+                    merged_incidents
+                )
 
-                            excluded_start = max(
-                                incident_start,
-                                maintenance.start_at.astimezone(tz),
+                # Calculate downtime that overlaps maintenance.
+                excluded_intervals = []
+
+                for incident_start, incident_end in merged_incidents:
+
+                    for maintenance_start, maintenance_end in (
+                        maintenance_intervals
+                    ):
+
+                        overlap_start = max(
+                            incident_start,
+                            maintenance_start,
+                        )
+
+                        overlap_end = min(
+                            incident_end,
+                            maintenance_end,
+                        )
+
+                        if overlap_start < overlap_end:
+                            excluded_intervals.append(
+                                (overlap_start, overlap_end)
                             )
 
-                            excluded_end = min(
-                                incident_end,
-                                maintenance.end_at.astimezone(tz),
-                            )
+                merged_exclusions = merge_intervals(
+                    excluded_intervals
+                )
 
-                            if excluded_start < excluded_end:
-
-                                downtime_during_maintenance_seconds += (
-                                    excluded_end - excluded_start
-                                ).total_seconds()
+                downtime_during_maintenance_seconds += (
+                    interval_seconds(merged_exclusions)
+                )
 
         current_date += timedelta(days=1)
 
@@ -239,8 +296,7 @@ def calculate_availability(start_at, end_at):
     )
 
     actual_downtime = max(
-        downtime_seconds
-        - downtime_during_maintenance_seconds,
+        downtime_seconds - downtime_during_maintenance_seconds,
         0,
     )
 
