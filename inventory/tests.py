@@ -1,4 +1,4 @@
-﻿
+import time
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.core.exceptions import ValidationError
@@ -970,4 +970,40 @@ class ComponentIntegrityTests(TestCase):
                 self.assertEqual(
                     getattr(component, field),
                     original_value,
+                )
+
+
+class InventoryResponseTimeTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="performance_test_user",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+    def test_inventory_pages_respond_within_three_seconds(self):
+        self.client.force_login(self.user)
+
+        pages = [
+            reverse("inventory:component-list"),
+            reverse("inventory:availability"),
+            reverse("inventory:low_stock"),
+            reverse("inventory:out_of_stock"),
+]
+
+        for page in pages:
+            with self.subTest(page=page):
+                start_time = time.perf_counter()
+
+                response = self.client.get(page)
+
+                elapsed_time = time.perf_counter() - start_time
+
+                self.assertEqual(response.status_code, 200)
+                self.assertLess(
+                    elapsed_time,
+                    3.0,
+                    f"{page} took {elapsed_time:.3f} seconds",
                 )
