@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import F
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.http import JsonResponse
+from django.db import connection
 
 from inventory.models import Component
 
@@ -87,3 +89,19 @@ def availability_report(request):
         "reports/availability_report.html",
         context,
     )
+def health_check(request):
+    """Check whether the application and database are responding."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+
+        return JsonResponse({
+            "status": "available",
+            "database": "connected",
+        }, status=200)
+
+    except Exception:
+        return JsonResponse({
+            "status": "unavailable",
+            "database": "disconnected",
+        }, status=503)

@@ -192,3 +192,18 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# US-16: System availability configuration
+
+SYSTEM_AVAILABILITY_TIME_ZONE = "Asia/Kolkata"
+
+# Provisional store operating hours.
+# Monday = 0, Sunday = 6.
+SYSTEM_OPERATING_HOURS = {
+    0: ("09:00", "21:00"),
+    1: ("09:00", "21:00"),
+    2: ("09:00", "21:00"),
+    3: ("09:00", "21:00"),
+    4: ("09:00", "21:00"),
+    5: ("09:00", "21:00"),
+    6: None,
+}
