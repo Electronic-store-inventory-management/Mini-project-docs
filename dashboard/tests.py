@@ -1,4 +1,3 @@
-
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -65,8 +64,59 @@ class DashboardTests(TestCase):
 
         self.assertEqual(response.context["total_components"], 3)
         self.assertEqual(response.context["total_stock"], 24)
+        self.assertEqual(response.context["available_count"], 1)
         self.assertEqual(response.context["low_stock_count"], 1)
         self.assertEqual(response.context["out_of_stock_count"], 1)
+
+    def test_dashboard_available_count_updates_when_inventory_changes(self):
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["available_count"], 1)
+
+        component = Component.objects.get(component_id="DASH002")
+        component.quantity = 10
+        component.save(update_fields=["quantity"])
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["available_count"], 2)
+
+    def test_available_count_excludes_quantity_equal_to_minimum_stock(self):
+        Component.objects.create(
+            component_id="DASH004",
+            name="Boundary Test Component",
+            category="Passive Components",
+            manufacturer="Test Manufacturer",
+            quantity=5,
+            unit_price="4.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["available_count"], 1)
+
+    def test_available_count_excludes_zero_quantity(self):
+        component = Component.objects.get(component_id="DASH001")
+        component.quantity = 0
+        component.save(update_fields=["quantity"])
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["available_count"], 0)
+
+    def test_available_count_is_zero_when_inventory_is_empty(self):
+        Component.objects.all().delete()
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["available_count"], 0)
 
     def test_dashboard_shows_categories(self):
         response = self.client.get(reverse("dashboard:home"))
