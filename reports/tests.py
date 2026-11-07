@@ -251,6 +251,7 @@ class AvailabilityReportTests(TestCase):
     },
 )
 class SystemAvailabilityTests(TestCase):
+
     def test_recovery_outside_operating_hours_resolves_incident(self):
         incident = AvailabilityIncident.objects.create(
             started_at=FIXED_NOW,
@@ -274,10 +275,6 @@ class SystemAvailabilityTests(TestCase):
     def test_overlapping_incidents_are_not_double_counted(self):
         start = datetime(
             2026, 11, 2, 9, 0, tzinfo=TEST_TZ
-        )
-
-        end = datetime(
-            2026, 11, 11, 0, 0, tzinfo=TEST_TZ
         )
 
         AvailabilityIncident.objects.create(
@@ -622,5 +619,54 @@ class AvailabilityCommandTests(TestCase):
 
         self.assertIn(
             "Interval must be at least 1 second",
+            output.getvalue(),
+        )
+
+    @patch(
+        "reports.management.commands.check_availability.record_availability_check"
+    )
+    @patch(
+        "reports.management.commands.check_availability.urllib.request.urlopen"
+    )
+    def test_database_error_while_recording_failed_check(
+        self,
+        mock_urlopen,
+        mock_record,
+    ):
+        mock_urlopen.side_effect = HTTPError(
+            "http://127.0.0.1:8000/reports/health/",
+            503,
+            "Service Unavailable",
+            None,
+            None,
+        )
+
+        mock_record.side_effect = DatabaseError(
+            "Database connection unavailable"
+        )
+
+        output = StringIO()
+
+        call_command(
+            "check_availability",
+            stdout=StringIO(),
+            stderr=output,
+        )
+
+        mock_record.assert_called_once()
+
+        recorded_arguments = mock_record.call_args.kwargs
+
+        self.assertFalse(
+            recorded_arguments["is_available"]
+        )
+
+        self.assertIn(
+            "could not be saved",
+            output.getvalue(),
+        )
+
+        self.assertIn(
+            "Database connection unavailable",
             output.getvalue(),
         )
