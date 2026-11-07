@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
-from django.db.models import F
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import ComponentForm
@@ -37,7 +37,16 @@ def landing_page(request):
 
 @login_required
 def component_list(request):
-    components = Component.objects.all()
+    query = request.GET.get('q', '').strip()
+    if query:
+        # Filter across component_id, name, and category (case‑insensitive partial matches)
+        components = Component.objects.filter(
+            Q(component_id__icontains=query) |
+            Q(name__icontains=query) |
+            Q(category__icontains=query)
+        )
+    else:
+        components = Component.objects.all()
     return render(
         request,
         "inventory/component_list.html",
@@ -45,6 +54,7 @@ def component_list(request):
             "page_title": "Component Inventory",
             "components": components,
             "model_missing": False,
+            "search_query": query,
         },
     )
 
