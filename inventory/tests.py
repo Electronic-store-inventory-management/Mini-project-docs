@@ -650,7 +650,6 @@ class DeleteComponentViewTests(TestCase):
             Component.objects.filter(pk=self.component.pk).exists()
         )
 
-
     def test_delete_nonexistent_component(self):
         self.client.force_login(self.user)
 
@@ -673,7 +672,9 @@ class DeleteComponentViewTests(TestCase):
             Component.objects.filter(pk=999999).exists()
         )
 
+
 class ComponentIntegrityTests(TestCase):
+
     def create_component(self, component_id="TEST001", **overrides):
         data = {
             "component_id": component_id,
@@ -878,6 +879,7 @@ class ComponentIntegrityTests(TestCase):
         self.assertEqual(existing.name, "Updated Component")
         self.assertEqual(existing.quantity, 30)
         self.assertEqual(existing.unit_price, 8)
+
     def test_bulk_update_rejects_whitespace_only_fields(self):
         component = self.create_component(
             component_id="BULK002",
@@ -902,8 +904,6 @@ class ComponentIntegrityTests(TestCase):
 
         component.refresh_from_db()
         self.assertEqual(component.name, "Valid Component")
-
-
 
     def test_bulk_update_accepts_valid_data(self):
         component = self.create_component(
@@ -1050,12 +1050,6 @@ class InventoryResponseTimeTests(TestCase):
                 )
 
 
-
-
-
-
-
-
 class InventoryPaginationTests(TestCase):
     PAGE_SIZE = 50
     RECORD_COUNT = 120
@@ -1198,3 +1192,110 @@ class InventoryPaginationTests(TestCase):
                     page_obj.number,
                     page_obj.paginator.num_pages,
                 )
+
+
+class ComponentSearchTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="search_staff",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+        cls.comp_a = Component.objects.create(
+            component_id="ABC123",
+            name="Alpha Resistor",
+            category="Passive",
+            manufacturer="ManuA",
+            quantity=10,
+            unit_price="0.10",
+            supplier="SupplierA",
+            minimum_stock_level=5,
+        )
+
+        cls.comp_b = Component.objects.create(
+            component_id="XYZ789",
+            name="Beta Capacitor",
+            category="Active",
+            manufacturer="ManuB",
+            quantity=20,
+            unit_price="0.20",
+            supplier="SupplierB",
+            minimum_stock_level=5,
+        )
+
+        cls.comp_c = Component.objects.create(
+            component_id="LMN456",
+            name="Gamma Diode",
+            category="Semiconductor",
+            manufacturer="ManuC",
+            quantity=5,
+            unit_price="0.30",
+            supplier="SupplierC",
+            minimum_stock_level=5,
+        )
+
+    def test_search_by_exact_component_id(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "ABC123"},
+        )
+        self.assertContains(response, self.comp_a.component_id)
+        self.assertNotContains(response, self.comp_b.component_id)
+        self.assertNotContains(response, self.comp_c.component_id)
+
+    def test_search_by_partial_component_id(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "XYZ"},
+        )
+        self.assertContains(response, self.comp_b.component_id)
+        self.assertNotContains(response, self.comp_a.component_id)
+        self.assertNotContains(response, self.comp_c.component_id)
+
+    def test_search_by_name_case_insensitive(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "gamma"},
+        )
+        self.assertContains(response, self.comp_c.name)
+        self.assertNotContains(response, self.comp_a.name)
+        self.assertNotContains(response, self.comp_b.name)
+
+    def test_search_by_category_case_insensitive(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "passive"},
+        )
+        self.assertContains(response, self.comp_a.category)
+        self.assertNotContains(response, self.comp_b.category)
+        self.assertNotContains(response, self.comp_c.category)
+
+    def test_search_no_results(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "nonexistent"},
+        )
+        self.assertContains(
+            response,
+            "No components found matching your search.",
+        )
+        self.assertNotContains(response, self.comp_a.component_id)
+        self.assertNotContains(response, self.comp_b.component_id)
+        self.assertNotContains(response, self.comp_c.component_id)
+
+    def test_search_empty_query_returns_all(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list")
+        )
+        self.assertContains(response, self.comp_a.component_id)
+        self.assertContains(response, self.comp_b.component_id)
+        self.assertContains(response, self.comp_c.component_id)

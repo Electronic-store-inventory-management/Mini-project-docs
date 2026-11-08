@@ -1,4 +1,3 @@
-
 from functools import wraps
 
 from django.contrib import messages
@@ -7,7 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import F, Q
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 
 from .forms import ComponentForm
 from .models import Component
@@ -46,6 +45,7 @@ def landing_page(request):
 
 @login_required
 def component_list(request):
+    # Search by component ID, name, or category.
     query = request.GET.get("q", "").strip()
 
     components = Component.objects.all()
@@ -57,6 +57,7 @@ def component_list(request):
             | Q(category__icontains=query)
         )
 
+    # Paginate the filtered queryset.
     page_obj = paginate_components(request, components)
 
     return render(
@@ -92,6 +93,7 @@ def add_component(request):
                     "Component added successfully.",
                 )
                 return redirect("inventory:component-list")
+
         elif "component_id" in form.errors:
             if Component.objects.filter(
                 component_id=request.POST.get("component_id")
@@ -99,6 +101,7 @@ def add_component(request):
                 form.errors["component_id"] = [
                     "Component with this Component Id already exists"
                 ]
+
     else:
         form = ComponentForm()
 
@@ -173,6 +176,7 @@ def out_of_stock(request):
 def delete_component(request, component_id):
     try:
         component = Component.objects.get(id=component_id)
+
     except Component.DoesNotExist:
         return render(
             request,
@@ -189,6 +193,7 @@ def delete_component(request, component_id):
 
     if request.method == "POST":
         component.delete()
+
         return render(
             request,
             "inventory/delete_component.html",
