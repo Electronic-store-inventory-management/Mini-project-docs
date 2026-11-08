@@ -8,11 +8,15 @@ from decimal import Decimal
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+# Always force the isolated performance settings.
+# Do not allow an inherited DJANGO_SETTINGS_MODULE to select
+# the normal application database.
+os.environ["DJANGO_SETTINGS_MODULE"] = "config.performance_settings"
 
 import django
 django.setup()
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from django.db.models.query import QuerySet
@@ -41,7 +45,16 @@ def seed_database():
             "Set PERF_TEST_PASSWORD before running this script."
         )
 
-    # Safety check: never seed the normal inventory database.
+    # Safety check 1: verify the Django database configuration.
+    configured_database = settings.DATABASES["default"]["NAME"]
+
+    if configured_database != DATABASE_NAME:
+        raise SystemExit(
+            f"STOP: Django is configured for {configured_database}, "
+            f"not {DATABASE_NAME}."
+        )
+
+    # Safety check 2: verify the actual MySQL connection.
     with connection.cursor() as cursor:
         cursor.execute("SELECT DATABASE()")
         current_database = cursor.fetchone()[0]
@@ -88,8 +101,7 @@ def seed_database():
             component_id__startswith=PREFIX
         ).delete()
 
-        # Bulk insert without calling the custom per-object
-        # validation override for every test record.
+        # Bulk insert without invoking per-object validation.
         QuerySet.bulk_create(
             Component.objects.all(),
             records,

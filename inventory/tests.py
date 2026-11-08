@@ -1048,3 +1048,153 @@ class InventoryResponseTimeTests(TestCase):
                     3.0,
                     f"{page} took {elapsed_time:.3f} seconds",
                 )
+
+
+
+
+
+
+
+
+class InventoryPaginationTests(TestCase):
+    PAGE_SIZE = 50
+    RECORD_COUNT = 120
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="pagination_test_staff",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+        components = []
+
+        for index in range(cls.RECORD_COUNT):
+            components.append(
+                Component(
+                    component_id=f"PAGE{index:04d}",
+                    name=f"Page Navigation Component {index:03d}",
+                    category="Pagination Records",
+                    manufacturer="Test Manufacturer",
+                    quantity=100,
+                    unit_price="5.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=10,
+                )
+            )
+
+            components.append(
+                Component(
+                    component_id=f"LOWPAGE{index:04d}",
+                    name=f"Low Stock Component {index:03d}",
+                    category="Low Stock",
+                    manufacturer="Test Manufacturer",
+                    quantity=5,
+                    unit_price="5.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=10,
+                )
+            )
+
+            components.append(
+                Component(
+                    component_id=f"OUTPAGE{index:04d}",
+                    name=f"Out of Stock Component {index:03d}",
+                    category="Out of Stock",
+                    manufacturer="Test Manufacturer",
+                    quantity=0,
+                    unit_price="5.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=10,
+                )
+            )
+
+        Component.objects.bulk_create(components, batch_size=100)
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def get_inventory_urls(self):
+        return [
+            reverse("inventory:component-list"),
+            reverse("inventory:availability"),
+            reverse("inventory:low_stock"),
+            reverse("inventory:out_of_stock"),
+        ]
+
+    def test_inventory_views_limit_page_size_to_50(self):
+        for url in self.get_inventory_urls():
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    len(response.context["components"]),
+                    self.PAGE_SIZE,
+                )
+                self.assertEqual(
+                    response.context["page_obj"].number,
+                    1,
+                )
+                self.assertGreater(
+                    response.context["page_obj"].paginator.count,
+                    self.PAGE_SIZE,
+                )
+
+    def test_inventory_views_support_page_navigation(self):
+        for url in self.get_inventory_urls():
+            with self.subTest(url=url):
+                response = self.client.get(url, {"page": 2})
+
+                self.assertEqual(response.status_code, 200)
+
+                page_obj = response.context["page_obj"]
+
+                self.assertEqual(page_obj.number, 2)
+                self.assertTrue(page_obj.has_previous())
+                self.assertTrue(page_obj.has_next())
+                self.assertEqual(
+                    len(response.context["components"]),
+                    self.PAGE_SIZE,
+                )
+
+    def test_search_query_is_preserved_across_pages(self):
+        query = "Pagination Records"
+
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": query, "page": 2},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["search_query"], query)
+        self.assertEqual(response.context["page_obj"].number, 2)
+
+        content = response.content.decode()
+
+        self.assertIn("q=Pagination%20Records&page=1", content)
+        self.assertIn("q=Pagination%20Records&page=3", content)
+
+    def test_invalid_page_numbers_fall_back_to_valid_pages(self):
+        for url in self.get_inventory_urls():
+            with self.subTest(url=url, page="invalid"):
+                response = self.client.get(url, {"page": "invalid"})
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["page_obj"].number,
+                    1,
+                )
+
+            with self.subTest(url=url, page="999"):
+                response = self.client.get(url, {"page": "999"})
+
+                self.assertEqual(response.status_code, 200)
+
+                page_obj = response.context["page_obj"]
+
+                self.assertEqual(
+                    page_obj.number,
+                    page_obj.paginator.num_pages,
+                )
