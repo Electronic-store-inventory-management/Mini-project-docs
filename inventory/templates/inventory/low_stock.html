@@ -21,6 +21,7 @@
             <th>Availability Status</th>
         </tr>
     </thead>
+
     <tbody>
         {% for component in components %}
         <tr>
@@ -37,4 +38,7 @@
         {% endfor %}
     </tbody>
 </table>
+
+{% include 'inventory/_pagination.html' %}
+
 {% endblock %}
