@@ -103,11 +103,27 @@ class InventoryUser(HttpUser):
         )
 
     @task(3)
-    def search_components(self):
+    def search_by_component_id(self):
         self.visit_page(
             "/inventory/components/?q=PERFLOAD05000",
-            "Inventory - Component search",
+            "Inventory - Search by component ID",
         )
+
+    @task(3)
+    def search_by_component_name(self):
+        self.visit_page(
+            "/inventory/components/?q=Performance%20Test%20Component",
+            "Inventory - Search by component name",
+        )
+
+    @task(3)
+    def search_by_category(self):
+        self.visit_page(
+            "/inventory/components/?q=Passive%20Components",
+            "Inventory - Search by category",
+        )
+
+
 
     @task(1)
     def view_dashboard(self):
