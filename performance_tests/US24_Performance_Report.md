@@ -1,14 +1,14 @@
-\# US-24 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Performance and Load Validation
+# US-24 - Performance and Load Validation
 
 
 
 **GitHub Issue:** #39
 
-\*\*Project:\*\* Electronics Store Inventory Management System
+**Project:** Electronics Store Inventory Management System
 
 
 
-\## 1. Objective
+## 1. Objective
 
 
 
@@ -16,27 +16,27 @@ To validate application performance under concurrent access and a large inventor
 
 
 
-\## 2. Testing Environment
+## 2. Testing Environment
 
 
 
-\- Application: Django
+- Application: Django
 
-\- Database: MySQL 8.0.46
+- Database: MySQL 8.0.46
 
-\- Load testing tool: Locust 2.47.0
+- Load testing tool: Locust 2.47.0
 
-\- Application server: Waitress
+- Application server: Waitress
 
-\- Virtual users: 10
+- Virtual users: 10
 
-\- Test duration: 120 seconds
+- Test duration: 120 seconds
 
-\- Spawn rate: 2 users per second
+- Spawn rate: 2 users per second
 
-\- Inventory dataset: 10,000 component records
+- Inventory dataset: 10,000 component records
 
-\- Database used: electronics\_inventory\_perf
+- Database used: electronics_inventory_perf
 
 
 
@@ -44,7 +44,7 @@ A separate performance database was used to avoid affecting normal inventory dat
 
 
 
-\## 3. Testing Methodology
+## 3. Testing Methodology
 
 
 
@@ -56,23 +56,23 @@ The following operations were tested:
 
 
 
-1\. User login and authentication.
+1. User login and authentication.
 
-2\. Component inventory listing.
+2. Component inventory listing.
 
-3\. Component search by component ID, name and category.
+3. Component search by component ID, name and category.
 
-4\. Component availability.
+4. Component availability.
 
-5\. Low-stock component listing.
+5. Low-stock component listing.
 
-6\. Out-of-stock component listing.
+6. Out-of-stock component listing.
 
-7\. Dashboard statistics.
+7. Dashboard statistics.
 
 
 
-\## 4. Initial Performance Bottlenecks
+## 4. Initial Performance Bottlenecks
 
 
 
@@ -86,15 +86,15 @@ Initial aggregated p90 response time was approximately 41 seconds.
 
 Major bottlenecks:
 
-\- Component listing: 42 seconds p90.
+- Component listing: 42 seconds p90.
 
-\- Component search: 43 seconds p90.
+- Component search: 43 seconds p90.
 
-\- Component availability: 28 seconds p90.
+- Component availability: 28 seconds p90.
 
 
 
-\## 5. Optimisation Implemented
+## 5. Optimisation Implemented
 
 
 
@@ -102,17 +102,17 @@ Pagination was implemented using Django's Paginator.
 
 
 
-\- Limited displayed records to 50 per page.
+- Limited displayed records to 50 per page.
 
-\- Added search filtering across component ID, name and category.
+- Added search filtering across component ID, name and category.
 
-\- Applied pagination to inventory listing, availability, low-stock and out-of-stock pages.
+- Applied pagination to inventory listing, availability, low-stock and out-of-stock pages.
 
-\- Preserved existing inventory information and access restrictions.
+- Preserved existing inventory information and access restrictions.
 
 
 
-\## 6. Final Performance Results
+## 6. Final Performance Results
 
 
 
@@ -140,21 +140,21 @@ The final test completed with 10 concurrent users and 10,000 component records.
 
 | Out of stock | 95 | 97 ms |
 
-| \*\*Aggregated\*\* | \*\*759\*\* | \*\*140 ms\*\* |
+| **Aggregated** | **759** | **140 ms** |
 
 
 
 Additional results:
 
-\- Failed requests: 0
+- Failed requests: 0
 
-\- Maximum response time: 2,214 ms
+- Maximum response time: 2,214 ms
 
-\- Aggregated average response time: approximately 118 ms.
+- Aggregated average response time: approximately 118 ms.
 
 
 
-\## 7. Before and After Comparison
+## 7. Before and After Comparison
 
 
 
@@ -176,23 +176,23 @@ The aggregated p90 response time improved by approximately 99.66%.
 
 
 
-\## 8. Acceptance Criteria Verification
+## 8. Acceptance Criteria Verification
 
 
 
-1\. Test up to 10 concurrent users ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Completed.
+1. Test up to 10 concurrent users - Completed.
 
-2\. Test with up to 10,000 component records ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Completed.
+2. Test with up to 10,000 component records - Completed.
 
-3\. Measure representative operation response times ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Completed.
+3. Measure representative operation response times - Completed.
 
-4\. Verify p90 response time within 3 seconds ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Passed.
+4. Verify p90 response time within 3 seconds - Passed.
 
-5\. Document performance results and bottlenecks ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Completed.
+5. Document performance results and bottlenecks - Completed.
 
 
 
-\*\*Final aggregated p90: 140 ms (0.14 seconds).\*\*
+**Final aggregated p90: 140 ms (0.14 seconds).**
 
 
 
@@ -200,7 +200,7 @@ The required threshold was 3,000 ms. All measured operation-specific p90 values 
 
 
 
-\## 9. Conclusion
+## 9. Conclusion
 
 
 
@@ -216,16 +216,61 @@ The results represent a local test environment and should not be interpreted as 
 
 
 
-\## 10. Test Evidence
+## 10. Test Evidence
 
 
 
-\- `results/us24.html` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Initial performance report.
+- `results/us24.html` - Initial performance report.
 
-\- `results/us24\_stats.csv` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Initial response statistics.
+- `results/us24_stats.csv` - Initial response statistics.
 
-\- `results/us24\_final.html` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Final performance report.
+- `results/us24_final.html` - Final performance report.
 
-\- `results/us24\_final\_stats.csv` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Final response statistics.
+- `results/us24_final_stats.csv` - Final response statistics.
 
-\- `results/us24\_final\_stats\_history.csv` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Response-time history.
+- `results/us24_final_stats_history.csv` - Response-time history.
+
+## 11. Reproduced Load Test - 9 November 2026
+
+A fresh 2-minute headless Locust run was completed successfully against the isolated performance environment. The test used 10 concurrent virtual users, a spawn rate of 2 users per second and 10,000 component records. The run exited cleanly with exit code 0.
+
+### 11.1 Aggregate Results
+
+| Metric | Result |
+|---|---:|
+| Total requests | 742 |
+| Failed requests | 0 |
+| Average response time | 125 ms |
+| Median response time | 110 ms |
+| 90th percentile (P90) | 160 ms |
+| 95th percentile (P95) | 170 ms |
+| 99th percentile (P99) | 1,000 ms |
+| Maximum response time | 1,146 ms |
+| Throughput | 6.25 requests/second |
+
+### 11.2 Endpoint Results
+
+| Endpoint | Requests | Average | P90 | P95 | Maximum |
+|---|---:|---:|---:|---:|---:|
+| Authentication - Login POST | 10 | 1,059 ms | 1,100 ms | 1,100 ms | 1,146 ms |
+| Authentication - Login page | 10 | 9 ms | 17 ms | 17 ms | 17 ms |
+| Dashboard - Statistics | 30 | 137 ms | 160 ms | 170 ms | 181 ms |
+| Inventory - Availability | 110 | 97 ms | 120 ms | 130 ms | 187 ms |
+| Inventory - Component list | 153 | 100 ms | 120 ms | 140 ms | 213 ms |
+| Inventory - Low stock | 64 | 84 ms | 110 ms | 120 ms | 144 ms |
+| Inventory - Out of stock | 60 | 76 ms | 96 ms | 110 ms | 133 ms |
+| Inventory - Search by category | 111 | 143 ms | 170 ms | 190 ms | 265 ms |
+| Inventory - Search by component ID | 99 | 127 ms | 160 ms | 170 ms | 189 ms |
+| Inventory - Search by component name | 95 | 139 ms | 170 ms | 190 ms | 315 ms |
+
+### 11.3 Observations
+
+- The run recorded zero failed requests.
+- The aggregate P90 response time was 160 ms, below the 3-second acceptance threshold.
+- The login POST endpoint was the main latency outlier, with an average response time of 1,059 ms.
+- Inventory listing, availability, low-stock and out-of-stock endpoints recorded P90 response times between 96 ms and 120 ms.
+- The results were obtained in a local test environment and do not establish production capacity.
+
+### 11.4 Evidence
+
+- `results/us24_html_only.html` - HTML report from the latest clean 2-minute Locust run.
