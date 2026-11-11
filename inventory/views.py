@@ -4,13 +4,12 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import ComponentForm
-from .models import Component
-
+from .models import Component, AuditLog
 
 def admin_required(view_func):
     """Allow only users with the ADMIN role or superuser status."""
@@ -57,7 +56,15 @@ def add_component(request):
 
         if form.is_valid():
             try:
-                form.save()
+                with transaction.atomic():
+                    component = form.save()
+
+                    AuditLog.objects.create(
+                        user=request.user,
+                        action="ADD",
+                        component_id=component.component_id,
+                    )
+
             except IntegrityError:
                 form.add_error(
                     "component_id",
@@ -69,6 +76,7 @@ def add_component(request):
                     "Component added successfully.",
                 )
                 return redirect("inventory:component-list")
+
         elif "component_id" in form.errors:
             if Component.objects.filter(
                 component_id=request.POST.get("component_id")
@@ -150,7 +158,16 @@ def delete_component(request, component_id):
         )
 
     if request.method == "POST":
-        component.delete()
+        with transaction.atomic():
+            deleted_component_id = component.component_id
+            component.delete()
+
+            AuditLog.objects.create(
+                user=request.user,
+                action="DELETE",
+                component_id=deleted_component_id,
+            )
+
         return render(
             request,
             "inventory/delete_component.html",

@@ -1,6 +1,7 @@
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.conf import settings
 from django.db.models import Q
 
 
@@ -159,3 +160,39 @@ class Component(models.Model):
                 name="component_min_stock_nonnegative",
             ),
         ]
+
+
+from django.conf import settings
+
+
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ("ADD", "Component Added"),
+        ("DELETE", "Component Deleted"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+    )
+
+    component_id = models.CharField(max_length=50)
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.action} - {self.component_id}"
+
+    class Meta:
+        ordering = ["-timestamp"]
+        verbose_name = "Audit Log"
+        verbose_name_plural = "Audit Logs"
+
