@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly System Availability Report</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #f5f6fa;
+            color: #263238;
+        }
+
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        h1, h2 { color: #263238; }
+
+        form { margin: 20px 0; }
+
+        select, input, button {
+            padding: 9px;
+            margin: 5px;
+        }
+
+        button {
+            background: #263238;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background: #eef3f8;
+            padding: 18px;
+            border-radius: 6px;
+            min-width: 145px;
+            flex: 1;
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+        }
+
+        .card p {
+            font-size: 22px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0 25px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th { background: #e9edf2; }
+
+        .error {
+            color: #b00020;
+            background: #ffebee;
+            padding: 12px;
+        }
+
+        .success { color: green; font-weight: bold; }
+        .failure { color: red; font-weight: bold; }
+        .section { margin-top: 30px; }
+        .no-data { text-align: center; color: #777; }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <h1>Monthly System Availability Report</h1>
+
+    <p>View system uptime, downtime, maintenance, health checks and incidents.</p>
+
+    <form method="get">
+        <label for="month">Month:</label>
+
+        <select name="month" id="month">
+            <option value="1" {% if selected_month == "1" %}selected{% endif %}>January</option>
+            <option value="2" {% if selected_month == "2" %}selected{% endif %}>February</option>
+            <option value="3" {% if selected_month == "3" %}selected{% endif %}>March</option>
+            <option value="4" {% if selected_month == "4" %}selected{% endif %}>April</option>
+            <option value="5" {% if selected_month == "5" %}selected{% endif %}>May</option>
+            <option value="6" {% if selected_month == "6" %}selected{% endif %}>June</option>
+            <option value="7" {% if selected_month == "7" %}selected{% endif %}>July</option>
+            <option value="8" {% if selected_month == "8" %}selected{% endif %}>August</option>
+            <option value="9" {% if selected_month == "9" %}selected{% endif %}>September</option>
+            <option value="10" {% if selected_month == "10" %}selected{% endif %}>October</option>
+            <option value="11" {% if selected_month == "11" %}selected{% endif %}>November</option>
+            <option value="12" {% if selected_month == "12" %}selected{% endif %}>December</option>
+        </select>
+
+        <label for="year">Year:</label>
+        <input type="number" name="year" id="year"
+               value="{{ selected_year }}" min="2000" max="2100" required>
+
+        <button type="submit">Generate Report</button>
+    </form>
+
+    {% if error_message %}
+        <p class="error">{{ error_message }}</p>
+    {% endif %}
+
+    {% if report %}
+
+        <h2>{{ report.month_name }} {{ report.year }}</h2>
+
+        <div class="summary">
+
+            <div class="card">
+                <h3>System Availability</h3>
+                <p>{{ report.availability_percentage|floatformat:2 }}%</p>
+            </div>
+
+            <div class="card">
+                <h3>Uptime (seconds)</h3>
+                <p>{{ report.uptime_seconds|floatformat:0 }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Downtime (seconds)</h3>
+                <p>{{ report.downtime_seconds|floatformat:0 }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Maintenance (seconds)</h3>
+                <p>{{ report.maintenance_seconds|floatformat:0 }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Total Health Checks</h3>
+                <p>{{ report.total_checks }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Failed Checks</h3>
+                <p>{{ report.failed_checks }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Total Incidents</h3>
+                <p>{{ report.total_incidents }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Unresolved Incidents</h3>
+                <p>{{ report.unresolved_incidents }}</p>
+            </div>
+
+        </div>
+
+        <div class="section">
+            <h2>Monthly Availability Target</h2>
+
+            {% if report.target_percentage == None %}
+                <p>Monthly availability target: Not configured.</p>
+            {% else %}
+                <p>Configured target: {{ report.target_percentage }}%</p>
+
+                {% if report.target_achieved %}
+                    <p class="success">Target Status: Achieved</p>
+                {% else %}
+                    <p class="failure">Target Status: Not Achieved</p>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>Health Check Evidence</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Check Time</th>
+                        <th>Status</th>
+                        <th>Failure Reason</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for check in report.health_check_evidence %}
+                        <tr>
+                            <td>{{ check.checked_at }}</td>
+                            <td>
+                                {% if check.is_available %}
+                                    <span class="success">Available</span>
+                                {% else %}
+                                    <span class="failure">Failed</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ check.failure_reason|default:"-" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="3" class="no-data">
+                                No health checks recorded for this month.
+                                                        </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Incident Evidence</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Started At</th>
+                        <th>Ended At</th>
+                        <th>Failure Reason</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for incident in report.incident_evidence %}
+                        <tr>
+                            <td>{{ incident.started_at }}</td>
+                            <td>{{ incident.ended_at|default:"Not recovered" }}</td>
+                            <td>{{ incident.failure_reason }}</td>
+                            <td>
+                                {% if incident.ended_at %}
+                                    <span class="success">Resolved</span>
+                                {% else %}
+                                    <span class="failure">Unresolved</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="no-data">
+                                No incidents recorded for this month.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    {% endif %}
+
+</div>
+</body>
+</html>
