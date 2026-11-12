@@ -1,15 +1,22 @@
-
 from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404, redirect, render
-
 from .forms import ComponentForm
 from .models import Component, AuditLog
+
+PAGE_SIZE = 50
+
+
+def paginate_components(request, queryset):
+    paginator = Paginator(queryset, PAGE_SIZE)
+    return paginator.get_page(request.GET.get("page"))
+
 
 def admin_required(view_func):
     """Allow only users with the ADMIN role or superuser status."""
@@ -36,13 +43,29 @@ def landing_page(request):
 
 @login_required
 def component_list(request):
+    # Search by component ID, name, or category.
+    query = request.GET.get("q", "").strip()
+
     components = Component.objects.all()
+
+    if query:
+        components = components.filter(
+            Q(component_id__icontains=query)
+            | Q(name__icontains=query)
+            | Q(category__icontains=query)
+        )
+
+    # Paginate the filtered queryset.
+    page_obj = paginate_components(request, components)
+
     return render(
         request,
         "inventory/component_list.html",
         {
             "page_title": "Component Inventory",
-            "components": components,
+            "components": page_obj,
+            "page_obj": page_obj,
+            "search_query": query,
             "model_missing": False,
         },
     )
@@ -84,6 +107,7 @@ def add_component(request):
                 form.errors["component_id"] = [
                     "Component with this Component Id already exists"
                 ]
+
     else:
         form = ComponentForm()
 
@@ -99,13 +123,18 @@ def add_component(request):
 
 @login_required
 def availability(request):
-    components = Component.objects.all()
+    page_obj = paginate_components(
+        request,
+        Component.objects.all(),
+    )
+
     return render(
         request,
         "inventory/availability.html",
         {
             "page_title": "Component Availability",
-            "components": components,
+            "components": page_obj,
+            "page_obj": page_obj,
         },
     )
 
@@ -116,12 +145,16 @@ def low_stock(request):
         quantity__gt=0,
         quantity__lte=F("minimum_stock_level"),
     )
+
+    page_obj = paginate_components(request, components)
+
     return render(
         request,
         "inventory/low_stock.html",
         {
             "page_title": "Low-Stock Components",
-            "components": components,
+            "components": page_obj,
+            "page_obj": page_obj,
         },
     )
 
@@ -131,12 +164,15 @@ def out_of_stock(request):
     """US-09: Identify components with zero available quantity."""
     components = Component.objects.filter(quantity=0)
 
+    page_obj = paginate_components(request, components)
+
     return render(
         request,
         "inventory/out_of_stock.html",
         {
             "page_title": "Out-of-Stock Components",
-            "components": components,
+            "components": page_obj,
+            "page_obj": page_obj,
         },
     )
 
@@ -146,13 +182,17 @@ def out_of_stock(request):
 def delete_component(request, component_id):
     try:
         component = Component.objects.get(id=component_id)
+
     except Component.DoesNotExist:
         return render(
             request,
             "inventory/delete_component.html",
             {
                 "page_title": "Delete Component",
-                "error_message": "Component could not be found. The component was not deleted.",
+                "error_message": (
+                    "Component could not be found. "
+                    "The component was not deleted."
+                ),
             },
             status=404,
         )

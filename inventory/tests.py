@@ -1,4 +1,4 @@
-﻿
+﻿import time
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.core.exceptions import ValidationError
@@ -272,7 +272,6 @@ class ComponentAddTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-
         self.assertEqual(
             Component.objects.filter(component_id="DUP001").count(),
             1,
@@ -337,7 +336,6 @@ class ComponentAddTests(TestCase):
         self.assertFalse(
             Component.objects.filter(component_id="NEG001").exists()
         )
-
         self.assertContains(response, "Quantity cannot be negative")
 
     def test_add_component_negative_price(self):
@@ -651,6 +649,8 @@ class DeleteComponentViewTests(TestCase):
         self.assertTrue(
             Component.objects.filter(pk=self.component.pk).exists()
         )
+
+    def test_delete_nonexistent_component(self):
         self.client.force_login(self.user)
 
         response = self.client.get(
@@ -672,7 +672,9 @@ class DeleteComponentViewTests(TestCase):
             Component.objects.filter(pk=999999).exists()
         )
 
+
 class ComponentIntegrityTests(TestCase):
+
     def create_component(self, component_id="TEST001", **overrides):
         data = {
             "component_id": component_id,
@@ -877,6 +879,7 @@ class ComponentIntegrityTests(TestCase):
         self.assertEqual(existing.name, "Updated Component")
         self.assertEqual(existing.quantity, 30)
         self.assertEqual(existing.unit_price, 8)
+
     def test_bulk_update_rejects_whitespace_only_fields(self):
         component = self.create_component(
             component_id="BULK002",
@@ -901,8 +904,6 @@ class ComponentIntegrityTests(TestCase):
 
         component.refresh_from_db()
         self.assertEqual(component.name, "Valid Component")
-
-
 
     def test_bulk_update_accepts_valid_data(self):
         component = self.create_component(
@@ -1074,4 +1075,331 @@ class InventoryAuditLogTests(TestCase):
         self.assertEqual(log.user, self.user)
         self.assertEqual(log.action, "DELETE")
         self.assertIsNotNone(log.timestamp)
+
+class InventoryResponseTimeTests(TestCase):
+    """
+    Application-level response-time tests.
+
+    Measures Django test-client request processing time.
+    These tests do not measure complete production network latency.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="performance_test_user",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+        # Representative inventory records.
+        Component.objects.create(
+            component_id="PERF001",
+            name="Performance Capacitor",
+            category="Passive Components",
+            manufacturer="Test Manufacturer",
+            quantity=20,
+            unit_price="5.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        Component.objects.create(
+            component_id="PERF002",
+            name="Performance Resistor",
+            category="Passive Components",
+            manufacturer="Test Manufacturer",
+            quantity=3,
+            unit_price="2.50",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        Component.objects.create(
+            component_id="PERF003",
+            name="Performance LED",
+            category="Optoelectronic Components",
+            manufacturer="Test Manufacturer",
+            quantity=0,
+            unit_price="3.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+    def test_inventory_pages_respond_within_three_seconds(self):
+        self.client.force_login(self.user)
+
+        pages = [
+            reverse("inventory:component-list"),
+            reverse("inventory:availability"),
+            reverse("inventory:low_stock"),
+            reverse("inventory:out_of_stock"),
+        ]
+
+        for page in pages:
+            with self.subTest(page=page):
+                start_time = time.perf_counter()
+
+                response = self.client.get(page)
+
+                elapsed_time = time.perf_counter() - start_time
+
+                self.assertEqual(response.status_code, 200)
+
+                self.assertLess(
+                    elapsed_time,
+                    3.0,
+                    f"{page} took {elapsed_time:.3f} seconds",
+                )
+
+
+class InventoryPaginationTests(TestCase):
+    PAGE_SIZE = 50
+    RECORD_COUNT = 120
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="pagination_test_staff",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+        components = []
+
+        for index in range(cls.RECORD_COUNT):
+            components.append(
+                Component(
+                    component_id=f"PAGE{index:04d}",
+                    name=f"Page Navigation Component {index:03d}",
+                    category="Pagination Records",
+                    manufacturer="Test Manufacturer",
+                    quantity=100,
+                    unit_price="5.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=10,
+                )
+            )
+
+            components.append(
+                Component(
+                    component_id=f"LOWPAGE{index:04d}",
+                    name=f"Low Stock Component {index:03d}",
+                    category="Low Stock",
+                    manufacturer="Test Manufacturer",
+                    quantity=5,
+                    unit_price="5.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=10,
+                )
+            )
+
+            components.append(
+                Component(
+                    component_id=f"OUTPAGE{index:04d}",
+                    name=f"Out of Stock Component {index:03d}",
+                    category="Out of Stock",
+                    manufacturer="Test Manufacturer",
+                    quantity=0,
+                    unit_price="5.00",
+                    supplier="Test Supplier",
+                    minimum_stock_level=10,
+                )
+            )
+
+        Component.objects.bulk_create(components, batch_size=100)
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def get_inventory_urls(self):
+        return [
+            reverse("inventory:component-list"),
+            reverse("inventory:availability"),
+            reverse("inventory:low_stock"),
+            reverse("inventory:out_of_stock"),
+        ]
+
+    def test_inventory_views_limit_page_size_to_50(self):
+        for url in self.get_inventory_urls():
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    len(response.context["components"]),
+                    self.PAGE_SIZE,
+                )
+                self.assertEqual(
+                    response.context["page_obj"].number,
+                    1,
+                )
+                self.assertGreater(
+                    response.context["page_obj"].paginator.count,
+                    self.PAGE_SIZE,
+                )
+
+    def test_inventory_views_support_page_navigation(self):
+        for url in self.get_inventory_urls():
+            with self.subTest(url=url):
+                response = self.client.get(url, {"page": 2})
+
+                self.assertEqual(response.status_code, 200)
+
+                page_obj = response.context["page_obj"]
+
+                self.assertEqual(page_obj.number, 2)
+                self.assertTrue(page_obj.has_previous())
+                self.assertTrue(page_obj.has_next())
+                self.assertEqual(
+                    len(response.context["components"]),
+                    self.PAGE_SIZE,
+                )
+
+    def test_search_query_is_preserved_across_pages(self):
+        query = "Pagination Records"
+
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": query, "page": 2},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["search_query"], query)
+        self.assertEqual(response.context["page_obj"].number, 2)
+
+        content = response.content.decode()
+
+        self.assertIn("q=Pagination%20Records&page=1", content)
+        self.assertIn("q=Pagination%20Records&page=3", content)
+
+    def test_invalid_page_numbers_fall_back_to_valid_pages(self):
+        for url in self.get_inventory_urls():
+            with self.subTest(url=url, page="invalid"):
+                response = self.client.get(url, {"page": "invalid"})
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["page_obj"].number,
+                    1,
+                )
+
+            with self.subTest(url=url, page="999"):
+                response = self.client.get(url, {"page": "999"})
+
+                self.assertEqual(response.status_code, 200)
+
+                page_obj = response.context["page_obj"]
+
+                self.assertEqual(
+                    page_obj.number,
+                    page_obj.paginator.num_pages,
+                )
+
+
+class ComponentSearchTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="search_staff",
+            password="SecurePass123!",
+            role=User.Role.STAFF,
+        )
+
+        cls.comp_a = Component.objects.create(
+            component_id="ABC123",
+            name="Alpha Resistor",
+            category="Passive",
+            manufacturer="ManuA",
+            quantity=10,
+            unit_price="0.10",
+            supplier="SupplierA",
+            minimum_stock_level=5,
+        )
+
+        cls.comp_b = Component.objects.create(
+            component_id="XYZ789",
+            name="Beta Capacitor",
+            category="Active",
+            manufacturer="ManuB",
+            quantity=20,
+            unit_price="0.20",
+            supplier="SupplierB",
+            minimum_stock_level=5,
+        )
+
+        cls.comp_c = Component.objects.create(
+            component_id="LMN456",
+            name="Gamma Diode",
+            category="Semiconductor",
+            manufacturer="ManuC",
+            quantity=5,
+            unit_price="0.30",
+            supplier="SupplierC",
+            minimum_stock_level=5,
+        )
+
+    def test_search_by_exact_component_id(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "ABC123"},
+        )
+        self.assertContains(response, self.comp_a.component_id)
+        self.assertNotContains(response, self.comp_b.component_id)
+        self.assertNotContains(response, self.comp_c.component_id)
+
+    def test_search_by_partial_component_id(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "XYZ"},
+        )
+        self.assertContains(response, self.comp_b.component_id)
+        self.assertNotContains(response, self.comp_a.component_id)
+        self.assertNotContains(response, self.comp_c.component_id)
+
+    def test_search_by_name_case_insensitive(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "gamma"},
+        )
+        self.assertContains(response, self.comp_c.name)
+        self.assertNotContains(response, self.comp_a.name)
+        self.assertNotContains(response, self.comp_b.name)
+
+    def test_search_by_category_case_insensitive(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "passive"},
+        )
+        self.assertContains(response, self.comp_a.category)
+        self.assertNotContains(response, self.comp_b.category)
+        self.assertNotContains(response, self.comp_c.category)
+
+    def test_search_no_results(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": "nonexistent"},
+        )
+        self.assertContains(
+            response,
+            "No components found matching your search.",
+        )
+        self.assertNotContains(response, self.comp_a.component_id)
+        self.assertNotContains(response, self.comp_b.component_id)
+        self.assertNotContains(response, self.comp_c.component_id)
+
+    def test_search_empty_query_returns_all(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("inventory:component-list")
+        )
+        self.assertContains(response, self.comp_a.component_id)
+        self.assertContains(response, self.comp_b.component_id)
+        self.assertContains(response, self.comp_c.component_id)
 

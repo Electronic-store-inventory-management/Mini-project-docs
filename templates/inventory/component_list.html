@@ -1,49 +1,104 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}Component Inventory{% endblock %}
 
 {% block content %}
-  <h2>Component Inventory</h2>
-{% if messages %}
-  {% for message in messages %}
-    <p>{{ message }}</p>
-  {% endfor %}
-{% endif %}
-  {% if model_missing %}
-    <p class="integration-notice">Component inventory is not available yet.</p>
-{% elif components %}
-    <table class="table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Category</th>
-          <th>Manufacturer</th>
-          <th>Quantity</th>
-          <th>Unit Price</th>
-          <th>Supplier</th>
-          <th>Minimum Stock</th>
-          <th>Availability Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for comp in components %}
-          <tr>
+<h2>Component Inventory</h2>
 
-            <td>{{ comp.component_id }}</td>
-            <td>{{ comp.name }}</td>
-            <td>{{ comp.category }}</td>
-            <td>{{ comp.manufacturer }}</td>
-            <td>{{ comp.quantity }}</td>
-            <td>{{ comp.unit_price }}</td>
-            <td>{{ comp.supplier }}</td>
-            <td>{{ comp.minimum_stock_level }}</td>
-            <td>{{ comp.availability_status }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
+<!-- Search Form -->
+<form
+    method="get"
+    action="{% url 'inventory:component-list' %}"
+    class="search-form"
+    style="margin-bottom:1rem;"
+>
+    <input
+        type="text"
+        name="q"
+        placeholder="Search by ID, name, or category"
+        value="{{ search_query|default:'' }}"
+        class="form-control"
+        style="display:inline-block;width:auto;max-width:300px;"
+    />
+
+    <button type="submit" class="btn btn-primary">
+        Search
+    </button>
+
+    {% if search_query %}
+        <a
+            href="{% url 'inventory:component-list' %}"
+            class="btn btn-secondary"
+            style="margin-left:0.5rem;"
+        >
+            Clear
+        </a>
+    {% endif %}
+</form>
+
+<!-- Messages -->
+{% if messages %}
+    {% for message in messages %}
+        <p>{{ message }}</p>
+    {% endfor %}
+{% endif %}
+
+<!-- Inventory -->
+{% if model_missing %}
+
+    <p class="integration-notice">
+        Component inventory is not available yet.
+    </p>
+
+{% elif components %}
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Manufacturer</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Supplier</th>
+                <th>Minimum Stock</th>
+                <th>Availability Status</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for comp in components %}
+                <tr>
+                    <td>{{ comp.component_id }}</td>
+                    <td>{{ comp.name }}</td>
+                    <td>{{ comp.category }}</td>
+                    <td>{{ comp.manufacturer }}</td>
+                    <td>{{ comp.quantity }}</td>
+                    <td>{{ comp.unit_price }}</td>
+                    <td>{{ comp.supplier }}</td>
+                    <td>{{ comp.minimum_stock_level }}</td>
+                    <td>{{ comp.availability_status }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
     </table>
-  {% else %}
-    <p class="empty-state">No components found in the inventory.</p>
-  {% endif %}
+
+    <!-- Pagination -->
+    {% include 'inventory/_pagination.html' %}
+
+{% else %}
+
+    {% if search_query %}
+        <p class="empty-state">
+            No components found matching your search.
+        </p>
+    {% else %}
+        <p class="empty-state">
+            No components found in the inventory.
+        </p>
+    {% endif %}
+
+{% endif %}
+
 {% endblock %}

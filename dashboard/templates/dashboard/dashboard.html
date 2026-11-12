@@ -81,6 +81,10 @@
             font-weight: bold;
         }
 
+        .success {
+            color: #15803d;
+        }
+
         .warning {
             color: #b45309;
         }
@@ -164,6 +168,11 @@
             <div class="card">
                 <h3>Total Components</h3>
                 <div class="number">{{ total_components }}</div>
+            </div>
+
+            <div class="card">
+                <h3>Available Components</h3>
+                <div class="number success">{{ available_count }}</div>
             </div>
 
             <div class="card">
