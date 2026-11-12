@@ -1,4 +1,4 @@
-import time
+﻿import time
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.core.exceptions import ValidationError
@@ -6,7 +6,7 @@ from django.db import connection
 from django.urls import reverse
 
 from .forms import ComponentForm
-from .models import Component
+from .models import Component, AuditLog
 
 
 User = get_user_model()
@@ -973,6 +973,109 @@ class ComponentIntegrityTests(TestCase):
                 )
 
 
+class InventoryAuditLogTests(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="audit_admin",
+            password="SecurePass123!",
+            role=User.Role.ADMIN,
+        )
+        self.client.force_login(self.user)
+
+    def test_successful_add_creates_audit_log(self):
+        post_data = {
+            "component_id": "AUDIT001",
+            "name": "Audit Resistor",
+            "category": "Passive",
+            "manufacturer": "Test Manufacturer",
+            "quantity": 20,
+            "unit_price": "5.00",
+            "supplier": "Test Supplier",
+            "minimum_stock_level": 5,
+        }
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        log = AuditLog.objects.get(component_id="AUDIT001")
+
+        self.assertEqual(log.user, self.user)
+        self.assertEqual(log.action, "ADD")
+        self.assertIsNotNone(log.timestamp)
+
+    def test_failed_add_does_not_create_audit_log(self):
+        Component.objects.create(
+            component_id="DUPAUDIT",
+            name="Existing Component",
+            category="Passive",
+            manufacturer="Test Manufacturer",
+            quantity=10,
+            unit_price="2.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        post_data = {
+            "component_id": "DUPAUDIT",
+            "name": "Duplicate Component",
+            "category": "Passive",
+            "manufacturer": "Test Manufacturer",
+            "quantity": 20,
+            "unit_price": "5.00",
+            "supplier": "Test Supplier",
+            "minimum_stock_level": 5,
+        }
+
+        response = self.client.post(
+            reverse("inventory:component-add"),
+            post_data,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            AuditLog.objects.filter(
+                component_id="DUPAUDIT"
+            ).exists()
+        )
+
+    def test_successful_delete_creates_audit_log(self):
+        component = Component.objects.create(
+            component_id="DELAUDIT",
+            name="Delete Audit Component",
+            category="Passive",
+            manufacturer="Test Manufacturer",
+            quantity=10,
+            unit_price="2.00",
+            supplier="Test Supplier",
+            minimum_stock_level=5,
+        )
+
+        response = self.client.post(
+            reverse(
+                "inventory:delete_component",
+                args=[component.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertFalse(
+            Component.objects.filter(
+                component_id="DELAUDIT"
+            ).exists()
+        )
+
+        log = AuditLog.objects.get(component_id="DELAUDIT")
+
+        self.assertEqual(log.user, self.user)
+        self.assertEqual(log.action, "DELETE")
+        self.assertIsNotNone(log.timestamp)
+
 class InventoryResponseTimeTests(TestCase):
     """
     Application-level response-time tests.
@@ -1299,3 +1402,4 @@ class ComponentSearchTests(TestCase):
         self.assertContains(response, self.comp_a.component_id)
         self.assertContains(response, self.comp_b.component_id)
         self.assertContains(response, self.comp_c.component_id)
+
