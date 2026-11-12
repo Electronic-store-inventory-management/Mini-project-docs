@@ -1342,64 +1342,99 @@ class ComponentSearchTests(TestCase):
 
     def test_search_by_exact_component_id(self):
         self.client.force_login(self.user)
+
         response = self.client.get(
             reverse("inventory:component-list"),
             {"q": "ABC123"},
         )
+
         self.assertContains(response, self.comp_a.component_id)
         self.assertNotContains(response, self.comp_b.component_id)
         self.assertNotContains(response, self.comp_c.component_id)
 
     def test_search_by_partial_component_id(self):
         self.client.force_login(self.user)
+
         response = self.client.get(
             reverse("inventory:component-list"),
             {"q": "XYZ"},
         )
+
         self.assertContains(response, self.comp_b.component_id)
         self.assertNotContains(response, self.comp_a.component_id)
         self.assertNotContains(response, self.comp_c.component_id)
 
     def test_search_by_name_case_insensitive(self):
         self.client.force_login(self.user)
+
         response = self.client.get(
             reverse("inventory:component-list"),
             {"q": "gamma"},
         )
+
         self.assertContains(response, self.comp_c.name)
         self.assertNotContains(response, self.comp_a.name)
         self.assertNotContains(response, self.comp_b.name)
 
     def test_search_by_category_case_insensitive(self):
         self.client.force_login(self.user)
+
         response = self.client.get(
             reverse("inventory:component-list"),
             {"q": "passive"},
         )
+
         self.assertContains(response, self.comp_a.category)
         self.assertNotContains(response, self.comp_b.category)
         self.assertNotContains(response, self.comp_c.category)
 
     def test_search_no_results(self):
         self.client.force_login(self.user)
+
         response = self.client.get(
             reverse("inventory:component-list"),
             {"q": "nonexistent"},
         )
+
         self.assertContains(
             response,
             "No components found matching your search.",
         )
+
         self.assertNotContains(response, self.comp_a.component_id)
         self.assertNotContains(response, self.comp_b.component_id)
         self.assertNotContains(response, self.comp_c.component_id)
 
     def test_search_empty_query_returns_all(self):
         self.client.force_login(self.user)
+
         response = self.client.get(
             reverse("inventory:component-list")
         )
+
         self.assertContains(response, self.comp_a.component_id)
         self.assertContains(response, self.comp_b.component_id)
         self.assertContains(response, self.comp_c.component_id)
 
+    # US-23: SQL injection protection
+    def test_search_rejects_sql_injection_attempt(self):
+        self.client.force_login(self.user)
+
+        malicious_query = "' OR '1'='1' --"
+
+        response = self.client.get(
+            reverse("inventory:component-list"),
+            {"q": malicious_query},
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(
+            len(response.context["components"]),
+            0,
+        )
+
+        self.assertEqual(
+            response.context["search_query"],
+            malicious_query,
+        )
