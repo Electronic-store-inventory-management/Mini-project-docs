@@ -7,6 +7,8 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.db import connection
+from datetime import datetime
+from reports.services import generate_monthly_availability_report
 
 from inventory.models import Component
 
@@ -105,3 +107,36 @@ def health_check(request):
             "status": "unavailable",
             "database": "disconnected",
         }, status=503)
+@login_required(login_url="/accounts/login/")
+def monthly_availability_report(request):
+    """US-22: Display the monthly system availability report."""
+
+    from django.utils import timezone
+    from reports.services import get_availability_timezone
+
+    local_now = timezone.now().astimezone(get_availability_timezone())
+
+    year_value = request.GET.get("year", str(local_now.year))
+    month_value = request.GET.get("month", str(local_now.month))
+
+    report = None
+    error_message = ""
+
+    try:
+        year = int(year_value)
+        month = int(month_value)
+        report = generate_monthly_availability_report(year, month)
+    except ValueError as error:
+        error_message = str(error)
+
+    return render(
+        request,
+        "reports/monthly_availability_report.html",
+        {
+            "report": report,
+            "selected_year": year_value,
+            "selected_month": month_value,
+            "error_message": error_message,
+            "current_year": local_now.year,
+        },
+    )

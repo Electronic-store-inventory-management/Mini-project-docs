@@ -4,6 +4,7 @@ from io import StringIO
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
+from reports.services import generate_monthly_availability_report
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -670,3 +671,144 @@ class AvailabilityCommandTests(TestCase):
             "Database connection unavailable",
             output.getvalue(),
         )
+
+# ============================================================
+# US-22: MONTHLY SYSTEM AVAILABILITY REPORT TESTS
+# ============================================================
+
+class MonthlyAvailabilityReportTests(TestCase):
+
+    @override_settings(
+        SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
+        SYSTEM_MONTHLY_AVAILABILITY_TARGET=None,
+        SYSTEM_OPERATING_HOURS={
+            0: ("09:00", "21:00"),
+            1: ("09:00", "21:00"),
+            2: ("09:00", "21:00"),
+            3: ("09:00", "21:00"),
+            4: ("09:00", "21:00"),
+            5: ("09:00", "21:00"),
+            6: None,
+        },
+    )
+    def test_monthly_report_contains_availability_and_evidence(self):
+        start = datetime(2026, 11, 2, 9, 0, tzinfo=TEST_TZ)
+
+        successful_check = AvailabilityCheck.objects.create(
+        is_available=True,
+        )
+
+        AvailabilityCheck.objects.filter(
+            pk=successful_check.pk
+        ).update(checked_at=start)
+
+
+        failed_check = AvailabilityCheck.objects.create(
+            is_available=False,
+            failure_reason="Database unavailable",
+        )
+
+        AvailabilityCheck.objects.filter(
+            pk=failed_check.pk
+        ).update(
+            checked_at=start + timedelta(minutes=30)
+        )
+
+        AvailabilityIncident.objects.create(
+            started_at=start + timedelta(hours=1),
+            ended_at=start + timedelta(hours=2),
+            failure_reason="Database failure",
+        )
+
+        with patch(
+            "reports.services.timezone.now",
+            return_value=datetime(
+                2026, 11, 2, 12, 0, tzinfo=TEST_TZ
+            ),
+        ):
+            report = generate_monthly_availability_report(
+                2026, 11
+            )
+
+        self.assertEqual(report["year"], 2026)
+        self.assertEqual(report["month"], 11)
+        self.assertEqual(report["month_name"], "November")
+        self.assertEqual(report["successful_checks"], 1)
+        self.assertEqual(report["failed_checks"], 1)
+        self.assertEqual(report["total_checks"], 2)
+        self.assertEqual(report["total_incidents"], 1)
+        self.assertEqual(report["unresolved_incidents"], 0)
+        self.assertEqual(report["downtime_seconds"], 3600)
+        self.assertEqual(report["availability_percentage"], 66.67)
+        self.assertIsNone(report["target_percentage"])
+        self.assertIsNone(report["target_achieved"])
+
+    @override_settings(
+        SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
+        SYSTEM_MONTHLY_AVAILABILITY_TARGET=95.0,
+        SYSTEM_OPERATING_HOURS={
+            0: ("09:00", "21:00"),
+            1: ("09:00", "21:00"),
+            2: ("09:00", "21:00"),
+            3: ("09:00", "21:00"),
+            4: ("09:00", "21:00"),
+            5: ("09:00", "21:00"),
+            6: None,
+        },
+    )
+    def test_monthly_target_achievement(self):
+        with patch(
+            "reports.services.timezone.now",
+            return_value=datetime(
+                2026, 11, 2, 12, 0, tzinfo=TEST_TZ
+            ),
+        ):
+            report = generate_monthly_availability_report(
+                2026, 11
+            )
+
+        self.assertEqual(report["target_percentage"], 95.0)
+        self.assertTrue(report["target_achieved"])
+
+    @override_settings(
+        SYSTEM_MONTHLY_AVAILABILITY_TARGET=95.0,
+    )
+    def test_monthly_target_not_achieved(self):
+        start = datetime(2026, 11, 2, 9, 0, tzinfo=TEST_TZ)
+
+        AvailabilityIncident.objects.create(
+            started_at=start,
+            ended_at=start + timedelta(hours=2),
+            failure_reason="Long outage",
+        )
+
+        with patch(
+            "reports.services.timezone.now",
+            return_value=datetime(
+                2026, 11, 2, 12, 0, tzinfo=TEST_TZ
+            ),
+        ):
+            report = generate_monthly_availability_report(
+                2026, 11
+            )
+
+        self.assertFalse(report["target_achieved"])
+
+    def test_invalid_month_is_rejected(self):
+        with self.assertRaises(ValueError):
+            generate_monthly_availability_report(2026, 13)
+
+    def test_invalid_target_is_rejected(self):
+        with override_settings(
+            SYSTEM_MONTHLY_AVAILABILITY_TARGET=105.0,
+        ):
+            with patch(
+                "reports.services.timezone.now",
+                return_value=datetime(
+                    2026, 11, 2, 12, 0, tzinfo=TEST_TZ
+                ),
+            ):
+                with self.assertRaises(ValueError):
+                    generate_monthly_availability_report(
+                        2026, 11
+                    )

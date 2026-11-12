@@ -15,4 +15,9 @@ urlpatterns = [
         views.health_check,
         name="health",
     ),
+    path(
+    "system-availability/monthly/",
+    views.monthly_availability_report,
+    name="monthly_availability",
+    ),
 ]
