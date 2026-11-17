@@ -1,5 +1,6 @@
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
+import calendar
 
 from django.conf import settings
 from django.db.models import Q
@@ -316,9 +317,9 @@ def calculate_availability(start_at, end_at):
     uptime_seconds = eligible_seconds - actual_downtime
 
     availability_percentage = (
-        uptime_seconds / eligible_seconds * 100
-        if eligible_seconds > 0
-        else 100.0
+    round(uptime_seconds / eligible_seconds * 100, 2)
+    if eligible_seconds > 0
+    else None
     )
 
     return {
@@ -327,8 +328,103 @@ def calculate_availability(start_at, end_at):
         "eligible_seconds": eligible_seconds,
         "downtime_seconds": actual_downtime,
         "uptime_seconds": uptime_seconds,
-        "availability_percentage": round(
-            availability_percentage,
-            2,
+        "availability_percentage": availability_percentage,
+    }
+
+
+def generate_monthly_availability_report(year, month):
+    """
+    Generate a monthly system availability report with
+    uptime, downtime, maintenance and monitoring evidence.
+    """
+
+    if not 1 <= month <= 12:
+        raise ValueError("Month must be between 1 and 12.")
+
+    if year < 2000:
+        raise ValueError("Invalid reporting year.")
+
+    tz = get_availability_timezone()
+
+    month_start = datetime(
+        year, month, 1, tzinfo=tz
+    )
+
+    last_day = calendar.monthrange(year, month)[1]
+
+    month_end = datetime(
+        year,
+        month,
+        last_day,
+        23, 59, 59, 999999,
+        tzinfo=tz,
+    ) + timedelta(microseconds=1)
+
+    # Do not calculate future time as system uptime.
+    report_end = min(month_end, timezone.now())
+
+    if report_end <= month_start:
+        raise ValueError("The selected month has not started.")
+
+    availability = calculate_availability(
+        month_start,
+        report_end,
+    )
+
+    checks = AvailabilityCheck.objects.filter(
+        checked_at__gte=month_start,
+        checked_at__lt=report_end,
+    )
+
+    incidents = AvailabilityIncident.objects.filter(
+        started_at__lt=report_end,
+    ).filter(
+        Q(ended_at__isnull=True)
+        | Q(ended_at__gt=month_start)
+    )
+
+    target = getattr(
+        settings,
+        "SYSTEM_MONTHLY_AVAILABILITY_TARGET",
+        None,
+    )
+
+    if target is not None and not 0 <= target <= 100:
+        raise ValueError(
+            "Monthly availability target must be between 0 and 100."
+        )
+
+    achieved = (
+    availability["availability_percentage"] >= target
+    if target is not None
+    and availability["availability_percentage"] is not None
+    else None
+    )
+
+    return {
+        "year": year,
+        "month": month,
+        "month_name": calendar.month_name[month],
+        "report_start": month_start,
+        "report_end": report_end,
+        **availability,
+        "successful_checks": checks.filter(
+            is_available=True
+        ).count(),
+        "failed_checks": checks.filter(
+            is_available=False
+        ).count(),
+        "total_checks": checks.count(),
+        "total_incidents": incidents.count(),
+        "unresolved_incidents": incidents.filter(
+            ended_at__isnull=True
+        ).count(),
+        "target_percentage": target,
+        "target_achieved": achieved,
+        "health_check_evidence": checks.order_by(
+            "-checked_at"
+        ),
+        "incident_evidence": incidents.order_by(
+            "-started_at"
         ),
     }
