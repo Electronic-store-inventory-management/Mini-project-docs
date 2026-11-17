@@ -1,36 +1,19 @@
 # US-23 – Complete Security Validation
 
 **Issue:** #42
+**Pull Request:** #48
 **Branch:** `23-us-23-security-validation`
 **Project:** Electronics Store Inventory Management System
-**Date:** 12 November 2026
-
----
 
 ## 1. Objective
 
 The objective of this task is to validate the security of the Electronics Store Inventory Management System by testing session management, role-based access control, input validation, SQL injection protection, authentication security, and HTTPS/TLS configuration.
 
-The purpose is to identify potential security weaknesses and document the test results.
+## 2. Session Management and Expiry
 
-## 2. Security Areas Tested
+### Existing Configuration
 
-The following security areas were considered:
-
-1. Automatic session expiry.
-2. Role-based access restrictions.
-3. Input validation.
-4. SQL injection protection.
-5. Secure authentication handling.
-6. HTTPS/TLS configuration.
-
----
-
-## 3. Session Management and Expiry
-
-### Configuration
-
-The following session settings are configured in `config/settings.py`:
+The 30-minute session expiry configuration already existed in `config/settings.py` before this PR.
 
 ```python
 SESSION_COOKIE_AGE = 1800
@@ -39,191 +22,116 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 ```
 
-### Explanation
+### Changes in This PR
 
-- `SESSION_COOKIE_AGE = 1800`: Sets the session cookie age to 30 minutes.
-- `SESSION_SAVE_EVERY_REQUEST = True`: Updates the session expiry when a request is made.
-- `SESSION_COOKIE_HTTPONLY = True`: Prevents JavaScript from accessing the session cookie.
-- `SESSION_COOKIE_SAMESITE = 'Lax'`: Provides protection against certain cross-site request scenarios.
-
-### Tests Performed
-
-Two tests were added to `accounts/tests.py`:
+This PR adds automated tests to validate the existing configuration:
 
 - `test_session_expiry_is_configured_for_30_minutes`
 - `test_expired_session_cannot_access_protected_page`
 
-The tests verify the configured session duration and simulate an expired session to check whether a protected page redirects an unauthenticated user to login.
+The tests verify the configured session age and simulate an expired session accessing a protected page.
 
 ### Result
 
-**Status: PASSED**
+**Status: PARTIALLY VERIFIED – DEFERRED ACCEPTANCE CRITERION**
 
-The session configuration and expired-session simulation tests passed.
+The configuration and expired-session simulation tests pass.
 
-**Note:** The actual 30-minute inactivity period was not tested by waiting for 30 minutes. The tests verify the configuration and simulate an expired session.
+Actual automatic expiry after 30 minutes of inactivity has not been verified by waiting for the full inactivity period. This verification remains deferred.
 
----
+## 3. Role-Based Access Control
 
-## 4. Role-Based Access Control
+The application uses the `admin_required` decorator to restrict administrative operations.
 
-### Implementation
+Tests verify that staff and manager users cannot add or delete components.
 
-The application uses role-based access restrictions to control which users can perform administrative operations.
-
-The `admin_required` decorator in `inventory/views.py` checks whether the logged-in user has the administrator role.
-
-Administrative operations such as adding and deleting components are restricted to administrators.
-
-### Tests Performed
-
-The existing inventory tests verify that:
-
-- Staff users cannot add components.
-- Manager users cannot add components.
-- Staff users cannot delete components.
-- Manager users cannot delete components.
-
-The tests verify that unauthorized users receive a **403 Forbidden** response.
-
-### Result
+Unauthorized requests receive a 403 Forbidden response.
 
 **Status: PASSED**
 
-The role-based access restriction tests passed.
+## 4. Input Validation
 
----
-
-## 5. Input Validation
-
-### Implementation
-
-Input validation is implemented in `inventory/forms.py` through `ComponentForm`.
-
-The form validates:
+The `ComponentForm` validates:
 
 - Duplicate component IDs.
 - Negative component quantities.
-- Invalid unit prices.
-- Invalid minimum stock levels.
+- Negative unit prices.
+- Negative minimum stock levels.
 
-These validations help prevent incorrect or invalid data from being stored in the database.
+**Status: PASSED**
+
+## 5. SQL Injection Protection
+
+### Implementation
+
+Component search uses Django ORM queries with `Q` objects and `filter()` lookups rather than constructing raw SQL queries from user input.
 
 ### Tests Performed
 
-Existing component form tests were executed to verify that invalid values are rejected.
+The component search test now checks five representative SQL injection-style inputs:
+
+1. `' OR '1'='1' --`
+2. `'; DROP TABLE components; --`
+3. `" OR "1"="1`
+4. `1' UNION SELECT NULL --`
+5. `admin' --`
+
+For each input, the test verifies that:
+
+- The request returns HTTP 200.
+- No components are returned.
+- The submitted search query is preserved.
 
 ### Result
 
-**Status: PASSED**
+**Status: PASSED – TARGETED REGRESSION TESTING**
 
-The input validation tests passed.
+All five representative inputs are covered by the automated search test.
 
----
+This is targeted testing of the component search functionality, not a complete security audit of every application endpoint.
 
-## 6. SQL Injection Protection
+## 6. Authentication Security
 
-### Implementation
+The application uses Django's authentication system and `AuthenticationForm`.
 
-Component searching is implemented in `inventory/views.py` using Django ORM queries.
+Security tests cover:
 
-The search functionality uses `Q` objects and `.filter()` with `icontains` lookups instead of constructing raw SQL queries using user input.
-
-This allows Django ORM to handle query parameters safely.
-
-### Test Performed
-
-A new test was added to `ComponentSearchTests` in `inventory/tests.py`:
-
-`test_search_rejects_sql_injection_attempt`
-
-The test sends the following SQL injection-style input:
-
-```text
-' OR '1'='1' --
-```
-
-It verifies that:
-
-- The search request completes successfully.
-- The malicious input does not return all database records.
-- No matching components are returned.
-
-### Result
-
-**Status: PASSED**
-
-The SQL injection-style search test passed.
-
-**Note:** This is a targeted regression test. It does not represent a complete security audit of every application endpoint.
-
----
-
-## 7. Authentication Security
-
-### Implementation
-
-Authentication security is handled through Django's authentication system.
-
-The login functionality uses Django's `AuthenticationForm`.
-
-The application includes:
-
-- Password input fields.
-- Generic authentication error messages.
+- Login and logout.
+- Password hashing.
+- CSRF protection.
+- Role helper functions.
 - Login rate limiting after five failed attempts.
 - Resetting failed login attempts after successful authentication.
-- Password hashing through Django's authentication system.
-
-### Tests Performed
-
-The existing account security tests verify login, logout, CSRF protection, password hashing, role helpers, and login rate limiting.
-
-### Result
 
 **Status: PASSED**
 
-All account security tests passed.
+## 7. HTTPS/TLS Configuration
 
----
+HTTPS/TLS deployment verification has not been completed because a deployment environment was not available for testing.
 
-## 8. HTTPS/TLS Configuration
-
-### Verification
-
-The local configuration was inspected to check HTTPS-related security settings.
-
-The following deployment-related settings were not found configured in `config/settings.py`:
+The following production settings require deployment-level review:
 
 - `SESSION_COOKIE_SECURE`
 - `CSRF_COOKIE_SECURE`
 - `SECURE_SSL_REDIRECT`
-- HTTP Strict Transport Security (HSTS) settings.
+- HTTP Strict Transport Security (HSTS).
 
-### Result
+**Status: DEFERRED – DEPLOYMENT VERIFICATION**
 
-**Status: PENDING**
+HTTPS/TLS must be verified after deployment. It is not marked as completed.
 
-HTTPS/TLS configuration could not be verified because the deployment environment was not tested.
-
-The production deployment should be configured with HTTPS and appropriate secure cookie and HSTS settings.
-
----
-
-## 9. Test Execution Summary
-
-The following tests were executed.
+## 8. Test Execution Summary
 
 | Test Suite | Result |
 |---|---:|
+| Component search tests | 7/7 passed |
 | Inventory tests | 58/58 passed |
 | Account security tests | 14/14 passed |
-| Component search tests | 7/7 passed |
 | Complete project test suite | 108/108 passed |
 
-**Important:** Component search tests are included within the inventory test suite. These counts should not be added together.
+Note: Component search tests are included within the inventory test suite. These results are not additive.
 
-### Full Test Execution
+### Complete Project Test
 
 Command:
 
@@ -239,39 +147,28 @@ Creating test database for alias 'default'...
 System check identified no issues (0 silenced).
 ............................................................................................................
 ----------------------------------------------------------------------
-Ran 108 tests in 24.382s
+Ran 108 tests in 19.430s
 
 OK
 Destroying test database for alias 'default'...
 ```
 
-### Overall Result
+**Overall Result: 108/108 tests passed.**
 
-**108 out of 108 tests passed successfully.**
+## 9. Deferred Acceptance Criteria
 
-No test failures were reported in the complete test suite.
+The following items remain open:
 
----
+1. Actual automatic session expiry after 30 minutes of inactivity.
+2. HTTPS/TLS verification in the deployment environment.
+3. Broader security testing beyond the component search injection regression tests.
 
-## 10. Identified Security Gaps
+## 10. Conclusion
 
-The following items still require attention:
+Security validation tests were added and executed for the Electronics Store Inventory Management System.
 
-1. Actual 30-minute inactivity expiry should be verified in a running environment.
-2. Additional SQL injection testing should be performed across relevant application inputs and endpoints.
-3. HTTPS/TLS should be verified in the deployment environment.
-4. Production cookie security and HSTS settings should be reviewed before deployment.
+The tests cover session configuration, expired-session handling, role-based access, input validation, representative SQL injection inputs, and authentication security.
 
----
+The complete project test suite passed with 108 out of 108 tests.
 
-## 11. Conclusion
-
-Security validation was performed for the Electronics Store Inventory Management System.
-
-Session management, role-based access control, input validation, SQL injection-style search handling, and authentication security were tested.
-
-The complete Django test suite passed successfully with **108 out of 108 tests**.
-
-HTTPS/TLS deployment verification and additional security checks remain pending.
-
-The results provide evidence that the tested security functionality is working as expected, while the identified gaps should be addressed before production deployment.
+Actual 30-minute inactivity verification and HTTPS/TLS deployment verification remain deferred and are not claimed as completed.

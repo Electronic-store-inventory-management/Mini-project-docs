@@ -1416,25 +1416,31 @@ class ComponentSearchTests(TestCase):
         self.assertContains(response, self.comp_b.component_id)
         self.assertContains(response, self.comp_c.component_id)
 
-    # US-23: SQL injection protection
-    def test_search_rejects_sql_injection_attempt(self):
+        # US-23: SQL injection protection
+    def test_search_rejects_sql_injection_attempts(self):
         self.client.force_login(self.user)
 
-        malicious_query = "' OR '1'='1' --"
+        malicious_queries = [
+            "' OR '1'='1' --",
+            "'; DROP TABLE components; --",
+            '" OR "1"="1',
+            "1' UNION SELECT NULL --",
+            "admin' --",
+        ]
 
-        response = self.client.get(
-            reverse("inventory:component-list"),
-            {"q": malicious_query},
-        )
+        for malicious_query in malicious_queries:
+            with self.subTest(query=malicious_query):
+                response = self.client.get(
+                    reverse("inventory:component-list"),
+                    {"q": malicious_query},
+                )
 
-        self.assertEqual(response.status_code, 200)
-
-        self.assertEqual(
-            len(response.context["components"]),
-            0,
-        )
-
-        self.assertEqual(
-            response.context["search_query"],
-            malicious_query,
-        )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    len(response.context["components"]),
+                    0,
+                )
+                self.assertEqual(
+                    response.context["search_query"],
+                    malicious_query,
+                )
