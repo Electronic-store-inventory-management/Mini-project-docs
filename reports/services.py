@@ -317,9 +317,9 @@ def calculate_availability(start_at, end_at):
     uptime_seconds = eligible_seconds - actual_downtime
 
     availability_percentage = (
-        uptime_seconds / eligible_seconds * 100
-        if eligible_seconds > 0
-        else 100.0
+    round(uptime_seconds / eligible_seconds * 100, 2)
+    if eligible_seconds > 0
+    else None
     )
 
     return {
@@ -328,12 +328,8 @@ def calculate_availability(start_at, end_at):
         "eligible_seconds": eligible_seconds,
         "downtime_seconds": actual_downtime,
         "uptime_seconds": uptime_seconds,
-        "availability_percentage": round(
-            availability_percentage,
-            2,
-        ),
+        "availability_percentage": availability_percentage,
     }
-import calendar
 
 
 def generate_monthly_availability_report(year, month):
@@ -384,7 +380,7 @@ def generate_monthly_availability_report(year, month):
         started_at__lt=report_end,
     ).filter(
         Q(ended_at__isnull=True)
-        | Q(ended_at__gte=month_start)
+        | Q(ended_at__gt=month_start)
     )
 
     target = getattr(
@@ -399,9 +395,10 @@ def generate_monthly_availability_report(year, month):
         )
 
     achieved = (
-        availability["availability_percentage"] >= target
-        if target is not None
-        else None
+    availability["availability_percentage"] >= target
+    if target is not None
+    and availability["availability_percentage"] is not None
+    else None
     )
 
     return {

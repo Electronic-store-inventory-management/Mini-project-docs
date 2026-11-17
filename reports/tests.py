@@ -812,3 +812,70 @@ class MonthlyAvailabilityReportTests(TestCase):
                     generate_monthly_availability_report(
                         2026, 11
                     )
+
+    @override_settings(
+        SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
+        SYSTEM_MONTHLY_AVAILABILITY_TARGET=None,
+        SYSTEM_OPERATING_HOURS={
+            0: ("09:00", "21:00"),
+            1: ("09:00", "21:00"),
+            2: ("09:00", "21:00"),
+            3: ("09:00", "21:00"),
+            4: ("09:00", "21:00"),
+            5: ("09:00", "21:00"),
+            6: None,
+        },
+    )
+    def test_incident_ending_at_month_start_is_excluded(self):
+        month_start = datetime(
+            2026, 11, 1, 0, 0, tzinfo=TEST_TZ
+        )
+
+        AvailabilityIncident.objects.create(
+            started_at=month_start - timedelta(hours=1),
+            ended_at=month_start,
+            failure_reason="October outage",
+        )
+
+        with patch(
+            "reports.services.timezone.now",
+            return_value=datetime(
+                2026, 11, 2, 12, 0, tzinfo=TEST_TZ
+            ),
+        ):
+            report = generate_monthly_availability_report(
+                2026, 11
+            )
+
+        self.assertEqual(report["total_incidents"], 0)
+        self.assertEqual(report["unresolved_incidents"], 0)
+        self.assertEqual(report["downtime_seconds"], 0)
+        self.assertEqual(report["incident_evidence"].count(), 0)
+
+    @override_settings(
+            SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
+            SYSTEM_MONTHLY_AVAILABILITY_TARGET=95.0,
+            SYSTEM_OPERATING_HOURS={
+                0: None,
+                1: None,
+                2: None,
+                3: None,
+                4: None,
+                5: None,
+                6: None,
+            },
+        )
+    def test_zero_eligible_operating_time_is_not_applicable(self):
+        with patch(
+            "reports.services.timezone.now",
+            return_value=datetime(
+                2026, 11, 2, 12, 0, tzinfo=TEST_TZ
+            ),
+        ):
+            report = generate_monthly_availability_report(
+                2026, 11
+            )
+
+        self.assertEqual(report["eligible_seconds"], 0)
+        self.assertIsNone(report["availability_percentage"])
+        self.assertIsNone(report["target_achieved"])

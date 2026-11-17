@@ -135,7 +135,11 @@
 
             <div class="card">
                 <h3>System Availability</h3>
-                <p>{{ report.availability_percentage|floatformat:2 }}%</p>
+                {% if report.availability_percentage is not None %}
+                    <p>{{ report.availability_percentage|floatformat:2 }}%</p>
+                {% else %}
+                    <p>N/A</p>
+                {% endif %}
             </div>
 
             <div class="card">
@@ -183,7 +187,9 @@
             {% else %}
                 <p>Configured target: {{ report.target_percentage }}%</p>
 
-                {% if report.target_achieved %}
+                {% if report.target_achieved is None %}
+                    <p>Target Status: Not Evaluated</p>
+                {% elif report.target_achieved %}
                     <p class="success">Target Status: Achieved</p>
                 {% else %}
                     <p class="failure">Target Status: Not Achieved</p>
