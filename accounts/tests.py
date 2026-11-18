@@ -1,3 +1,6 @@
+
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, Client
@@ -18,23 +21,27 @@ class AuthenticationTests(TestCase):
     7. Passwords are encrypted using Django password hashing.
     8. User roles (Admin, Manager, Staff) are modeled and verified.
     9. Rate limiting blocks repeated failed logins per SAD Section 3.9 & SRS AC-SR-006.
+    10. The full 15-minute lockout starts when the fifth failed attempt occurs.
     """
 
     @classmethod
     def setUpTestData(cls):
         cls.password = 'SecurePass123!'
+
         cls.staff_user = User.objects.create_user(
             username='staff_john',
             password=cls.password,
             email='john@example.com',
             role=User.Role.STAFF
         )
+
         cls.manager_user = User.objects.create_user(
             username='manager_mary',
             password=cls.password,
             email='mary@example.com',
             role=User.Role.MANAGER
         )
+
         cls.admin_user = User.objects.create_user(
             username='admin_boss',
             password=cls.password,
@@ -54,14 +61,19 @@ class AuthenticationTests(TestCase):
     # 1. Accessing a protected page while logged out
     def test_unauthenticated_access_to_landing_page_redirects_to_login(self):
         response = self.client.get(self.landing_url)
+
         self.assertEqual(response.status_code, 302)
+
         expected_redirect = f"{self.login_url}?next={self.landing_url}"
         self.assertRedirects(response, expected_redirect)
 
     def test_unauthenticated_access_to_root_redirects_to_login(self):
         response = self.client.get('/', follow=False)
+
         self.assertEqual(response.status_code, 302)
+
         response = self.client.get('/', follow=True)
+
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/login.html')
 
@@ -71,19 +83,28 @@ class AuthenticationTests(TestCase):
             'username': 'staff_john',
             'password': self.password,
         })
+
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, self.landing_url)
         self.assertIn('_auth_user_id', self.client.session)
-        self.assertEqual(int(self.client.session['_auth_user_id']), self.staff_user.pk)
+        self.assertEqual(
+            int(self.client.session['_auth_user_id']),
+            self.staff_user.pk
+        )
 
     # 3. Successful login with 'next' redirect parameter
     def test_successful_login_honors_next_parameter(self):
         target_url = f"{self.landing_url}?tab=recent"
-        response = self.client.post(f"{self.login_url}?next={target_url}", {
-            'username': 'staff_john',
-            'password': self.password,
-            'next': target_url,
-        })
+
+        response = self.client.post(
+            f"{self.login_url}?next={target_url}",
+            {
+                'username': 'staff_john',
+                'password': self.password,
+                'next': target_url,
+            }
+        )
+
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, target_url)
 
@@ -93,6 +114,7 @@ class AuthenticationTests(TestCase):
             'username': 'staff_john',
             'password': 'WrongPassword999',
         })
+
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/login.html')
         self.assertNotIn('_auth_user_id', self.client.session)
@@ -103,6 +125,7 @@ class AuthenticationTests(TestCase):
             'username': 'nonexistent_user',
             'password': 'SomePassword123!',
         })
+
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/login.html')
         self.assertNotIn('_auth_user_id', self.client.session)
@@ -111,7 +134,9 @@ class AuthenticationTests(TestCase):
     # 5. Access to the protected landing page after authentication
     def test_authenticated_user_can_access_landing_page(self):
         self.client.force_login(self.staff_user)
+
         response = self.client.get(self.landing_url)
+
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'inventory/landing.html')
         self.assertContains(response, 'staff_john')
@@ -120,11 +145,13 @@ class AuthenticationTests(TestCase):
     # 6. Logout and subsequent denial of protected-page access
     def test_logout_terminates_session_and_denies_landing_access(self):
         self.client.force_login(self.staff_user)
+
         landing_response = self.client.get(self.landing_url)
         self.assertEqual(landing_response.status_code, 200)
 
         # Perform POST logout
         logout_response = self.client.post(self.logout_url)
+
         self.assertEqual(logout_response.status_code, 302)
         self.assertRedirects(logout_response, self.login_url)
 
@@ -133,21 +160,28 @@ class AuthenticationTests(TestCase):
 
         # Subsequent request to protected landing page must redirect to login
         subsequent_response = self.client.get(self.landing_url)
+
         self.assertEqual(subsequent_response.status_code, 302)
-        self.assertRedirects(subsequent_response, f"{self.login_url}?next={self.landing_url}")
+        self.assertRedirects(
+            subsequent_response,
+            f"{self.login_url}?next={self.landing_url}"
+        )
 
     # 7. CSRF handling
     def test_login_post_requires_csrf_token(self):
         csrf_client = Client(enforce_csrf_checks=True)
+
         response = csrf_client.post(self.login_url, {
             'username': 'staff_john',
             'password': self.password,
         })
+
         self.assertEqual(response.status_code, 403)
 
     # 8. Password hashing security
     def test_password_is_hashed_and_not_stored_plaintext(self):
         user = User.objects.get(username='staff_john')
+
         self.assertNotEqual(user.password, self.password)
         self.assertTrue(user.password.startswith('pbkdf2_sha256$'))
         self.assertTrue(user.check_password(self.password))
@@ -170,28 +204,88 @@ class AuthenticationTests(TestCase):
         self.assertFalse(self.admin_user.is_manager_role)
         self.assertFalse(self.admin_user.is_staff_role)
 
-    # 10. Login Rate Limiting (SAD Section 3.9 & SRS AC-SR-006)
+    # 10. Login Rate Limiting (SRS AC-SR-006)
     def test_login_rate_limiting_blocks_after_5_failed_attempts(self):
-        # 5 failed attempts
+        # Five failed attempts
         for i in range(5):
-            res = self.client.post(self.login_url, {
+            response = self.client.post(self.login_url, {
                 'username': 'staff_john',
                 'password': f'WrongGuess{i}',
             })
-            self.assertEqual(res.status_code, 200)
 
-        # 6th attempt must be blocked by rate limit
-        blocked_res = self.client.post(self.login_url, {
+            self.assertEqual(response.status_code, 200)
+
+        # Sixth attempt must be blocked by rate limit
+        blocked_response = self.client.post(self.login_url, {
             'username': 'staff_john',
             'password': 'WrongGuess5',
         })
-        self.assertEqual(blocked_res.status_code, 200)
-        self.assertContains(blocked_res, "Too many failed login attempts")
 
-        # Even with correct password, account remains locked out
-        locked_valid_res = self.client.post(self.login_url, {
+        self.assertEqual(blocked_response.status_code, 200)
+        self.assertContains(
+            blocked_response,
+            "Too many failed login attempts"
+        )
+
+        # Correct credentials must also be rejected during lockout
+        locked_valid_response = self.client.post(self.login_url, {
             'username': 'staff_john',
             'password': self.password,
         })
-        self.assertEqual(locked_valid_res.status_code, 200)
-        self.assertContains(locked_valid_res, "Too many failed login attempts")
+
+        self.assertEqual(locked_valid_response.status_code, 200)
+        self.assertContains(
+            locked_valid_response,
+            "Too many failed login attempts"
+        )
+
+    # 11. Verify that the full 15-minute lockout starts on the fifth failure
+    def test_lockout_starts_full_15_minute_period_after_fifth_failure(self):
+        username = self.staff_user.username
+
+        cache_key = f"login_fails_127.0.0.1_{username.lower()}"
+        lockout_key = f"{cache_key}_lockout"
+
+        # First four failures should not activate the separate lockout.
+        for i in range(4):
+            response = self.client.post(self.login_url, {
+                'username': username,
+                'password': f'WrongBeforeLockout{i}',
+            })
+
+            self.assertEqual(response.status_code, 200)
+            self.assertNotContains(
+                response,
+                "Too many failed login attempts"
+            )
+
+        self.assertEqual(cache.get(cache_key), 4)
+        self.assertIsNone(cache.get(lockout_key))
+
+        # Fifth failure must create the separate 900-second lockout.
+        with patch(
+            'accounts.forms.cache.add',
+            wraps=cache.add
+        ) as mocked_add:
+
+            response = self.client.post(self.login_url, {
+                'username': username,
+                'password': 'WrongFifthAttempt',
+            })
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertContains(
+            response,
+            "Too many failed login attempts"
+        )
+
+        # Verify that the lockout key is active.
+        self.assertTrue(cache.get(lockout_key))
+
+        # Verify the lockout was created with a fresh 900-second timeout.
+        mocked_add.assert_any_call(
+            lockout_key,
+            True,
+            timeout=900
+        )

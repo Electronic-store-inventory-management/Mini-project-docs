@@ -4,12 +4,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import F, Q
 from django.shortcuts import redirect, render
 
 from .forms import ComponentForm
-from .models import Component
+from .models import Component, InventoryAuditLog
 
 
 PAGE_SIZE = 50
@@ -81,12 +81,26 @@ def add_component(request):
 
         if form.is_valid():
             try:
-                form.save()
+                with transaction.atomic():
+                    component = form.save()
+
+                    InventoryAuditLog.objects.create(
+                        user=request.user,
+                        username=request.user.get_username(),
+                        action=InventoryAuditLog.Action.ADD,
+                        component_id=component.component_id,
+                    )
+
             except IntegrityError:
-                form.add_error(
-                    "component_id",
-                    "Component with this Component Id already exists",
-                )
+                if Component.objects.filter(
+                    component_id=request.POST.get("component_id")
+                ).exists():
+                    form.add_error(
+                        "component_id",
+                        "Component with this Component Id already exists",
+                    )
+                else:
+                    raise
             else:
                 messages.success(
                     request,
@@ -192,7 +206,15 @@ def delete_component(request, component_id):
         )
 
     if request.method == "POST":
-        component.delete()
+        with transaction.atomic():
+            InventoryAuditLog.objects.create(
+                user=request.user,
+                username=request.user.get_username(),
+                action=InventoryAuditLog.Action.DELETE,
+                component_id=component.component_id,
+            )
+
+            component.delete()
 
         return render(
             request,
