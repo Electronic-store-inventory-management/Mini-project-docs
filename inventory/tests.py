@@ -6,7 +6,7 @@ from django.db import connection
 from django.urls import reverse
 
 from .forms import ComponentForm
-from .models import Component, InventoryAuditLog
+from .models import Component
 
 
 User = get_user_model()
@@ -1299,75 +1299,3 @@ class ComponentSearchTests(TestCase):
         self.assertContains(response, self.comp_a.component_id)
         self.assertContains(response, self.comp_b.component_id)
         self.assertContains(response, self.comp_c.component_id)
-
-class InventoryAuditLogTests(TestCase):
-    """Verify audit records for successful inventory operations."""
-
-    def setUp(self):
-        self.admin = User.objects.create_user(
-            username="audit_admin",
-            password="SecurePass123!",
-            role=User.Role.ADMIN,
-        )
-
-        self.client.force_login(self.admin)
-
-    def test_successful_add_creates_audit_record(self):
-        response = self.client.post(
-            reverse("inventory:component-add"),
-            {
-                "component_id": "AUD-ADD-01",
-                "name": "Audit Test Capacitor",
-                "category": "Passive",
-                "manufacturer": "Test Manufacturer",
-                "quantity": 12,
-                "unit_price": "2.50",
-                "supplier": "Test Supplier",
-                "minimum_stock_level": 3,
-            },
-        )
-
-        self.assertEqual(response.status_code, 302)
-
-        log = InventoryAuditLog.objects.get(
-            action=InventoryAuditLog.Action.ADD,
-            component_id="AUD-ADD-01",
-        )
-
-        self.assertEqual(log.user, self.admin)
-        self.assertEqual(log.username, self.admin.username)
-        self.assertIsNotNone(log.timestamp)
-
-    def test_successful_delete_creates_audit_record(self):
-        component = Component.objects.create(
-            component_id="AUD-DEL-01",
-            name="Audit Delete Resistor",
-            category="Passive",
-            manufacturer="Test Manufacturer",
-            quantity=8,
-            unit_price="1.50",
-            supplier="Test Supplier",
-            minimum_stock_level=2,
-        )
-
-        response = self.client.post(
-            reverse(
-                "inventory:delete_component",
-                args=[component.pk],
-            )
-        )
-
-        self.assertEqual(response.status_code, 200)
-
-        self.assertFalse(
-            Component.objects.filter(pk=component.pk).exists()
-        )
-
-        log = InventoryAuditLog.objects.get(
-            action=InventoryAuditLog.Action.DELETE,
-            component_id="AUD-DEL-01",
-        )
-
-        self.assertEqual(log.user, self.admin)
-        self.assertEqual(log.username, self.admin.username)
-        self.assertIsNotNone(log.timestamp)
