@@ -1,23 +1,19 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.test import TestCase, Client
 from django.urls import reverse
+from django.utils import timezone
 
 User = get_user_model()
 
 
 class AuthenticationTests(TestCase):
     """
-    Automated test suite verifying acceptance criteria for US-01:
-    1. Unauthenticated users cannot access protected pages and are redirected to login.
-    2. Successful login with valid credentials creates session and redirects to intended page.
-    3. Failed login with invalid credentials shows safe error message and denies access.
-    4. Authenticated users can access protected inventory landing page.
-    5. Logout terminates session and revokes access to protected pages.
-    6. CSRF verification is enforced on authentication forms.
-    7. Passwords are encrypted using Django password hashing.
-    8. User roles (Admin, Manager, Staff) are modeled and verified.
-    9. Rate limiting blocks repeated failed logins per SAD Section 3.9 & SRS AC-SR-006.
+    Automated test suite verifying acceptance criteria for US-01 and US-23.
     """
 
     @classmethod
@@ -51,7 +47,7 @@ class AuthenticationTests(TestCase):
     def tearDown(self):
         cache.clear()
 
-    # 1. Accessing a protected page while logged out
+    # 1. Unauthenticated access
     def test_unauthenticated_access_to_landing_page_redirects_to_login(self):
         response = self.client.get(self.landing_url)
         self.assertEqual(response.status_code, 302)
@@ -65,7 +61,7 @@ class AuthenticationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'accounts/login.html')
 
-    # 2. Successful login with valid credentials
+    # 2. Successful login
     def test_successful_login_redirects_to_landing_page(self):
         response = self.client.post(self.login_url, {
             'username': 'staff_john',
@@ -74,9 +70,11 @@ class AuthenticationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, self.landing_url)
         self.assertIn('_auth_user_id', self.client.session)
-        self.assertEqual(int(self.client.session['_auth_user_id']), self.staff_user.pk)
+        self.assertEqual(
+            int(self.client.session['_auth_user_id']),
+            self.staff_user.pk
+        )
 
-    # 3. Successful login with 'next' redirect parameter
     def test_successful_login_honors_next_parameter(self):
         target_url = f"{self.landing_url}?tab=recent"
         response = self.client.post(f"{self.login_url}?next={target_url}", {
@@ -87,7 +85,7 @@ class AuthenticationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, target_url)
 
-    # 4. Failed login with invalid credentials
+    # 3. Failed login
     def test_failed_login_with_incorrect_password(self):
         response = self.client.post(self.login_url, {
             'username': 'staff_john',
@@ -108,7 +106,7 @@ class AuthenticationTests(TestCase):
         self.assertNotIn('_auth_user_id', self.client.session)
         self.assertContains(response, "Invalid username or password")
 
-    # 5. Access to the protected landing page after authentication
+    # 4. Authenticated access
     def test_authenticated_user_can_access_landing_page(self):
         self.client.force_login(self.staff_user)
         response = self.client.get(self.landing_url)
@@ -117,26 +115,26 @@ class AuthenticationTests(TestCase):
         self.assertContains(response, 'staff_john')
         self.assertContains(response, 'Staff')
 
-    # 6. Logout and subsequent denial of protected-page access
+    # 5. Logout
     def test_logout_terminates_session_and_denies_landing_access(self):
         self.client.force_login(self.staff_user)
         landing_response = self.client.get(self.landing_url)
         self.assertEqual(landing_response.status_code, 200)
 
-        # Perform POST logout
         logout_response = self.client.post(self.logout_url)
         self.assertEqual(logout_response.status_code, 302)
         self.assertRedirects(logout_response, self.login_url)
 
-        # Verify session is cleared
         self.assertNotIn('_auth_user_id', self.client.session)
 
-        # Subsequent request to protected landing page must redirect to login
         subsequent_response = self.client.get(self.landing_url)
         self.assertEqual(subsequent_response.status_code, 302)
-        self.assertRedirects(subsequent_response, f"{self.login_url}?next={self.landing_url}")
+        self.assertRedirects(
+            subsequent_response,
+            f"{self.login_url}?next={self.landing_url}"
+        )
 
-    # 7. CSRF handling
+    # 6. CSRF protection
     def test_login_post_requires_csrf_token(self):
         csrf_client = Client(enforce_csrf_checks=True)
         response = csrf_client.post(self.login_url, {
@@ -145,7 +143,7 @@ class AuthenticationTests(TestCase):
         })
         self.assertEqual(response.status_code, 403)
 
-    # 8. Password hashing security
+    # 7. Password hashing
     def test_password_is_hashed_and_not_stored_plaintext(self):
         user = User.objects.get(username='staff_john')
         self.assertNotEqual(user.password, self.password)
@@ -153,7 +151,7 @@ class AuthenticationTests(TestCase):
         self.assertTrue(user.check_password(self.password))
         self.assertFalse(user.check_password('WrongPassword'))
 
-    # 9. Role-Based Authorization Foundation
+    # 8. Role-based authorization
     def test_user_roles_and_helper_methods(self):
         self.assertEqual(self.staff_user.role, User.Role.STAFF)
         self.assertTrue(self.staff_user.is_staff_role)
@@ -170,9 +168,8 @@ class AuthenticationTests(TestCase):
         self.assertFalse(self.admin_user.is_manager_role)
         self.assertFalse(self.admin_user.is_staff_role)
 
-    # 10. Login Rate Limiting (SAD Section 3.9 & SRS AC-SR-006)
+    # 9. Login rate limiting
     def test_login_rate_limiting_blocks_after_5_failed_attempts(self):
-        # 5 failed attempts
         for i in range(5):
             res = self.client.post(self.login_url, {
                 'username': 'staff_john',
@@ -180,18 +177,49 @@ class AuthenticationTests(TestCase):
             })
             self.assertEqual(res.status_code, 200)
 
-        # 6th attempt must be blocked by rate limit
         blocked_res = self.client.post(self.login_url, {
             'username': 'staff_john',
             'password': 'WrongGuess5',
         })
         self.assertEqual(blocked_res.status_code, 200)
-        self.assertContains(blocked_res, "Too many failed login attempts")
+        self.assertContains(
+            blocked_res,
+            "Too many failed login attempts"
+        )
 
-        # Even with correct password, account remains locked out
         locked_valid_res = self.client.post(self.login_url, {
             'username': 'staff_john',
             'password': self.password,
         })
         self.assertEqual(locked_valid_res.status_code, 200)
-        self.assertContains(locked_valid_res, "Too many failed login attempts")
+        self.assertContains(
+            locked_valid_res,
+            "Too many failed login attempts"
+        )
+
+    # 10. US-23: Session security configuration
+    def test_session_expiry_is_configured_for_30_minutes(self):
+        self.assertEqual(settings.SESSION_COOKIE_AGE, 1800)
+        self.assertTrue(settings.SESSION_SAVE_EVERY_REQUEST)
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, "Lax")
+
+    # 11. US-23: Expired sessions cannot access protected pages
+    def test_expired_session_cannot_access_protected_page(self):
+        self.client.force_login(self.staff_user)
+
+        session_key = self.client.session.session_key
+
+        Session.objects.filter(
+            session_key=session_key
+        ).update(
+            expire_date=timezone.now() - timedelta(seconds=1)
+        )
+
+        response = self.client.get(self.landing_url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response,
+            f"{self.login_url}?next={self.landing_url}"
+        )
