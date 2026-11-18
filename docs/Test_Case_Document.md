@@ -4,7 +4,7 @@
 **Version:** 1.1
 **Update date:** 18 November 2026
 **Scope:** Sprint updates and regression testing
-**Execution result:** 105 tests passed, 0 failures
+**Execution result:** 116 tests passed, 0 failures
 
 ## 1. Purpose
 
@@ -15,11 +15,11 @@ This document updates the existing test cases against the current system require
 - Framework: Django
 - Automated test command: `manage.py test`
 - Test database: Isolated in-memory SQLite
-- Latest regression run: 105 tests passed in 14.166 seconds
+- Latest regression run: 116 tests passed in 13.961 seconds
 - Django system check: No issues
-- Statement coverage: 96.40% (536/556)
-- Branch coverage: 82.14% (92/112)
-- Combined coverage.py metric: 94.01%
+- Statement coverage: 93.90% (570/607)
+- Branch coverage: 83.90% (99/118)
+- Combined coverage.py metric: 92.28%
 
 The MySQL migration for the new audit-log table has not yet been verified against the project's configured MySQL database because Windows Application Control blocks the MySQL driver DLL.
 
@@ -81,27 +81,28 @@ These results demonstrate performance at the tested workload; they do not establ
 | TC-SEC-06 | SR-006 | Submit repeated failed login attempts | Further login attempts are blocked after five failures for the configured 15-minute period | Passed for lockout behaviour and 900-second timeout configuration; elapsed-time expiry test pending |
 | TC-SEC-07 | SR-007 | Verify deployed HTTPS and TLS configuration | Deployment uses HTTPS and TLS 1.2 or higher | Pending deployment verification |
 
-### New Sprint audit test evidence
+### Merged US-21 audit test evidence
 
-Two regression tests were added in `inventory.tests.InventoryAuditLogTests`:
+The team's existing `AuditLog` implementation is used.
 
-1. `test_successful_add_creates_audit_record`
-   - Verifies the logged-in admin, username, ADD action, component ID, and timestamp.
-2. `test_successful_delete_creates_audit_record`
-   - Verifies the DELETE audit record remains after the component is deleted.
+Three tests are included in `inventory.tests.InventoryAuditLogTests`:
 
-Both tests passed.
+1. `test_successful_add_creates_audit_log`
+2. `test_failed_add_does_not_create_audit_log`
+3. `test_successful_delete_creates_audit_log`
+
+All three passed in the full 116-test suite.
 
 ## 6. Overall execution summary
 
 | Metric | Result |
 |---|---:|
-| Automated tests | 105 |
-| Passed | 105 |
+| Automated tests | 116 |
+| Passed | 116 |
 | Failed | 0 |
-| Statement coverage | 96.40% |
-| Branch coverage | 82.14% |
-| Combined coverage | 94.01% |
+| Statement coverage | 93.90% |
+| Branch coverage | 83.90% |
+| Combined coverage | 92.28% |
 
 Refer to `Unit_Test_Execution_Log.txt`, `Unit_Test_Report.md`, `System_Validation_Report.md`, `Code_Coverage_Report.md`, and `Branch_Coverage_Report.md` for supporting evidence.
 

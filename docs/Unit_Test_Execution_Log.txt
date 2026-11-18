@@ -1,6 +1,6 @@
 Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
 
-Found 105 test(s).
+Found 116 test(s).
 Operations to perform:
   Synchronize unmigrated apps: messages, staticfiles
   Apply all migrations: accounts, admin, auth, contenttypes, inventory, reports, sessions
@@ -28,9 +28,10 @@ Running migrations:
   Applying admin.0003_logentry_add_action_flag_choices... OK
   Applying inventory.0001_initial... OK
   Applying inventory.0002_component_component_quantity_nonnegative_and_more... OK
-  Applying inventory.0003_inventoryauditlog... OK
+  Applying inventory.0003_auditlog... OK
   Applying reports.0001_initial... OK
   Applying sessions.0001_initial...test_authenticated_user_can_access_landing_page (accounts.tests.AuthenticationTests.test_authenticated_user_can_access_landing_page) ... ok
+test_expired_session_cannot_access_protected_page (accounts.tests.AuthenticationTests.test_expired_session_cannot_access_protected_page) ... ok
 test_failed_login_with_incorrect_password (accounts.tests.AuthenticationTests.test_failed_login_with_incorrect_password) ... ok
 test_failed_login_with_nonexistent_user (accounts.tests.AuthenticationTests.test_failed_login_with_nonexistent_user) ... ok
 test_lockout_starts_full_15_minute_period_after_fifth_failure (accounts.tests.AuthenticationTests.test_lockout_starts_full_15_minute_period_after_fifth_failure) ... ok
@@ -38,15 +39,116 @@ test_login_post_requires_csrf_token (accounts.tests.AuthenticationTests.test_log
 test_login_rate_limiting_blocks_after_5_failed_attempts (accounts.tests.AuthenticationTests.test_login_rate_limiting_blocks_after_5_failed_attempts) ... ok
 test_logout_terminates_session_and_denies_landing_access (accounts.tests.AuthenticationTests.test_logout_terminates_session_and_denies_landing_access) ... ok
 test_password_is_hashed_and_not_stored_plaintext (accounts.tests.AuthenticationTests.test_password_is_hashed_and_not_stored_plaintext) ... ok
+test_session_expiry_is_configured_for_30_minutes (accounts.tests.AuthenticationTests.test_session_expiry_is_configured_for_30_minutes) ... ok
 test_successful_login_honors_next_parameter (accounts.tests.AuthenticationTests.test_successful_login_honors_next_parameter) ... ok
 test_successful_login_redirects_to_landing_page (accounts.tests.AuthenticationTests.test_successful_login_redirects_to_landing_page) ... ok
 test_unauthenticated_access_to_landing_page_redirects_to_login (accounts.tests.AuthenticationTests.test_unauthenticated_access_to_landing_page_redirects_to_login) ... ok
 test_unauthenticated_access_to_root_redirects_to_login (accounts.tests.AuthenticationTests.test_unauthenticated_access_to_root_redirects_to_login) ... ok
 test_user_roles_and_helper_methods (accounts.tests.AuthenticationTests.test_user_roles_and_helper_methods) ... ok
 test_all_authenticated_roles_can_access_dashboard (dashboard.tests.DashboardTests.test_all_authenticated_roles_can_access_dashboard) ... ok
+test_available_count_excludes_quantity_equal_to_minimum_stock (dashboard.tests.DashboardTests.test_available_count_excludes_quantity_equal_to_minimum_stock) ... ok
+test_available_count_excludes_zero_quantity (dashboard.tests.DashboardTests.test_available_count_excludes_zero_quantity) ... ok
+test_available_count_is_zero_when_inventory_is_empty (dashboard.tests.DashboardTests.test_available_count_is_zero_when_inventory_is_empty) ... ok
+test_dashboard_available_count_updates_when_inventory_changes (dashboard.tests.DashboardTests.test_dashboard_available_count_updates_when_inventory_changes) ... ok
+test_dashboard_displays_correct_statistics (dashboard.tests.DashboardTests.test_dashboard_displays_correct_statistics) ... ok
+test_dashboard_shows_categories (dashboard.tests.DashboardTests.test_dashboard_shows_categories) ... ok
+test_unauthenticated_user_is_redirected_to_login (dashboard.tests.DashboardTests.test_unauthenticated_user_is_redirected_to_login) ... ok
+test_add_component_duplicate_id (inventory.tests.ComponentAddTests.test_add_component_duplicate_id) ... ok
+test_add_component_get_shows_form (inventory.tests.ComponentAddTests.test_add_component_get_shows_form) ... ok
+test_add_component_negative_minimum_stock_level (inventory.tests.ComponentAddTests.test_add_component_negative_minimum_stock_level) ... ok
+test_add_component_negative_price (inventory.tests.ComponentAddTests.test_add_component_negative_price) ... ok
+test_add_component_negative_quantity (inventory.tests.ComponentAddTests.test_add_component_negative_quantity) ... ok
+test_add_component_unauthenticated_redirect (inventory.tests.ComponentAddTests.test_add_component_unauthenticated_redirect) ... ok
+test_add_component_valid_post_creates (inventory.tests.ComponentAddTests.test_add_component_valid_post_creates) ... ok
+test_availability_page_requires_login (inventory.tests.ComponentAddTests.test_availability_page_requires_login) ... ok
+test_availability_page_shows_all_components_and_statuses (inventory.tests.ComponentAddTests.test_availability_page_shows_all_components_and_statuses) ... ok
+test_availability_statuses (inventory.tests.ComponentAddTests.test_availability_statuses) ... ok
+test_low_stock_page_requires_login (inventory.tests.ComponentAddTests.test_low_stock_page_requires_login) ... ok
+test_low_stock_page_shows_only_positive_low_stock (inventory.tests.ComponentAddTests.test_low_stock_page_shows_only_positive_low_stock) ... ok
+test_manager_cannot_access_add_component_form (inventory.tests.ComponentAddTests.test_manager_cannot_access_add_component_form) ... ok
+test_manager_cannot_add_component (inventory.tests.ComponentAddTests.test_manager_cannot_add_component) ... ok
+test_out_of_stock_page_requires_login (inventory.tests.ComponentAddTests.test_out_of_stock_page_requires_login) ... ok
+test_out_of_stock_page_shows_only_zero_quantity_components (inventory.tests.ComponentAddTests.test_out_of_stock_page_shows_only_zero_quantity_components) ... ok
+test_staff_cannot_access_add_component_form (inventory.tests.ComponentAddTests.test_staff_cannot_access_add_component_form) ... ok
+test_staff_cannot_add_component (inventory.tests.ComponentAddTests.test_staff_cannot_add_component) ... ok
+test_duplicate_component_id_is_rejected (inventory.tests.ComponentDuplicateIdTests.test_duplicate_component_id_is_rejected) ... ok
+test_unique_component_id_is_accepted (inventory.tests.ComponentDuplicateIdTests.test_unique_component_id_is_accepted) ... ok
+test_bulk_create_ignore_conflicts (inventory.tests.ComponentIntegrityTests.test_bulk_create_ignore_conflicts) ... ok
+test_bulk_create_inserts_100_inventory_records (inventory.tests.ComponentIntegrityTests.test_bulk_create_inserts_100_inventory_records) ... ok
+test_bulk_create_rejects_whitespace_only_fields (inventory.tests.ComponentIntegrityTests.test_bulk_create_rejects_whitespace_only_fields) ... ok
+test_bulk_create_update_conflicts (inventory.tests.ComponentIntegrityTests.test_bulk_create_update_conflicts) ... ok
+test_bulk_update_accepts_valid_data (inventory.tests.ComponentIntegrityTests.test_bulk_update_accepts_valid_data) ... ok
+test_bulk_update_rejects_negative_numeric_values (inventory.tests.ComponentIntegrityTests.test_bulk_update_rejects_negative_numeric_values) ... ok
+test_bulk_update_rejects_whitespace_only_fields (inventory.tests.ComponentIntegrityTests.test_bulk_update_rejects_whitespace_only_fields) ... ok
+test_existing_record_remains_unchanged_after_other_record_operations (inventory.tests.ComponentIntegrityTests.test_existing_record_remains_unchanged_after_other_record_operations) ... ok
+test_negative_values_are_rejected_by_model (inventory.tests.ComponentIntegrityTests.test_negative_values_are_rejected_by_model) ... ok
+test_queryset_update_rejects_negative_numeric_values (inventory.tests.ComponentIntegrityTests.test_queryset_update_rejects_negative_numeric_values) ... ok
+test_queryset_update_rejects_whitespace_only_fields (inventory.tests.ComponentIntegrityTests.test_queryset_update_rejects_whitespace_only_fields) ... ok
+test_whitespace_only_text_fields_are_rejected (inventory.tests.ComponentIntegrityTests.test_whitespace_only_text_fields_are_rejected) ... ok
+test_component_list_displays_component (inventory.tests.ComponentListViewTests.test_component_list_displays_component) ... ok
+test_component_list_empty_inventory (inventory.tests.ComponentListViewTests.test_component_list_empty_inventory) ... ok
+test_component_list_requires_login (inventory.tests.ComponentListViewTests.test_component_list_requires_login) ... ok
+test_search_by_category_case_insensitive (inventory.tests.ComponentSearchTests.test_search_by_category_case_insensitive) ... ok
+test_search_by_exact_component_id (inventory.tests.ComponentSearchTests.test_search_by_exact_component_id) ... ok
+test_search_by_name_case_insensitive (inventory.tests.ComponentSearchTests.test_search_by_name_case_insensitive) ... ok
+test_search_by_partial_component_id (inventory.tests.ComponentSearchTests.test_search_by_partial_component_id) ... ok
+test_search_empty_query_returns_all (inventory.tests.ComponentSearchTests.test_search_empty_query_returns_all) ... ok
+test_search_no_results (inventory.tests.ComponentSearchTests.test_search_no_results) ... ok
+test_search_rejects_sql_injection_attempts (inventory.tests.ComponentSearchTests.test_search_rejects_sql_injection_attempts) ... ok
+test_delete_component_requires_login (inventory.tests.DeleteComponentViewTests.test_delete_component_requires_login) ... ok
+test_delete_nonexistent_component (inventory.tests.DeleteComponentViewTests.test_delete_nonexistent_component) ... ok
+test_get_shows_confirmation_without_deleting (inventory.tests.DeleteComponentViewTests.test_get_shows_confirmation_without_deleting) ... ok
+test_manager_cannot_access_delete_confirmation (inventory.tests.DeleteComponentViewTests.test_manager_cannot_access_delete_confirmation) ... ok
+test_manager_cannot_delete_component (inventory.tests.DeleteComponentViewTests.test_manager_cannot_delete_component) ... ok
+test_nonexistent_component_returns_error_message (inventory.tests.DeleteComponentViewTests.test_nonexistent_component_returns_error_message) ... ok
+test_post_deletes_component_and_shows_success (inventory.tests.DeleteComponentViewTests.test_post_deletes_component_and_shows_success) ... ok
+test_staff_cannot_access_delete_confirmation (inventory.tests.DeleteComponentViewTests.test_staff_cannot_access_delete_confirmation) ... ok
+test_staff_cannot_delete_component (inventory.tests.DeleteComponentViewTests.test_staff_cannot_delete_component) ... ok
+test_failed_add_does_not_create_audit_log (inventory.tests.InventoryAuditLogTests.test_failed_add_does_not_create_audit_log) ... ok
+test_successful_add_creates_audit_log (inventory.tests.InventoryAuditLogTests.test_successful_add_creates_audit_log) ... ok
+test_successful_delete_creates_audit_log (inventory.tests.InventoryAuditLogTests.test_successful_delete_creates_audit_log) ... ok
+test_invalid_page_numbers_fall_back_to_valid_pages (inventory.tests.InventoryPaginationTests.test_invalid_page_numbers_fall_back_to_valid_pages) ... ok
+test_inventory_views_limit_page_size_to_50 (inventory.tests.InventoryPaginationTests.test_inventory_views_limit_page_size_to_50) ... ok
+test_inventory_views_support_page_navigation (inventory.tests.InventoryPaginationTests.test_inventory_views_support_page_navigation) ... ok
+test_search_query_is_preserved_across_pages (inventory.tests.InventoryPaginationTests.test_search_query_is_preserved_across_pages) ... ok
+test_inventory_pages_respond_within_three_seconds (inventory.tests.InventoryResponseTimeTests.test_inventory_pages_respond_within_three_seconds) ... ok
+test_connection_error_is_recorded (reports.tests.AvailabilityCommandTests.test_connection_error_is_recorded) ... ok
+test_database_error_while_recording_failed_check (reports.tests.AvailabilityCommandTests.test_database_error_while_recording_failed_check) ... ok
+test_http_failure_is_recorded (reports.tests.AvailabilityCommandTests.test_http_failure_is_recorded) ... ok
+test_invalid_interval_is_rejected (reports.tests.AvailabilityCommandTests.test_invalid_interval_is_rejected) ... ok
+test_successful_availability_check (reports.tests.AvailabilityCommandTests.test_successful_availability_check) ... ok
+test_timeout_error_is_recorded (reports.tests.AvailabilityCommandTests.test_timeout_error_is_recorded) ... ok
+test_all_authenticated_roles_can_access_report_and_csv (reports.tests.AvailabilityReportTests.test_all_authenticated_roles_can_access_report_and_csv) ... ok
+test_available_filter (reports.tests.AvailabilityReportTests.test_available_filter) ... ok
+test_category_filter (reports.tests.AvailabilityReportTests.test_category_filter) ... ok
+test_csv_export (reports.tests.AvailabilityReportTests.test_csv_export) ... ok
+test_filtered_csv_export (reports.tests.AvailabilityReportTests.test_filtered_csv_export) ... ok
+test_low_stock_filter (reports.tests.AvailabilityReportTests.test_low_stock_filter) ... ok
+test_out_of_stock_filter (reports.tests.AvailabilityReportTests.test_out_of_stock_filter) ... ok
+test_report_page_loads (reports.tests.AvailabilityReportTests.test_report_page_loads) ... ok
+test_unauthenticated_user_cannot_export_csv (reports.tests.AvailabilityReportTests.test_unauthenticated_user_cannot_export_csv) ... ok
+test_unauthenticated_user_is_redirected_to_login (reports.tests.AvailabilityReportTests.test_unauthenticated_user_is_redirected_to_login) ... ok
+test_health_endpoint_returns_200_when_database_is_available (reports.tests.HealthCheckTests.test_health_endpoint_returns_200_when_database_is_available) ... ok
+test_health_endpoint_returns_503_when_database_fails (reports.tests.HealthCheckTests.test_health_endpoint_returns_503_when_database_fails) ... ok
+test_incident_ending_at_month_start_is_excluded (reports.tests.MonthlyAvailabilityReportTests.test_incident_ending_at_month_start_is_excluded) ... ok
+test_invalid_month_is_rejected (reports.tests.MonthlyAvailabilityReportTests.test_invalid_month_is_rejected) ... ok
+test_invalid_target_is_rejected (reports.tests.MonthlyAvailabilityReportTests.test_invalid_target_is_rejected) ... ok
+test_monthly_report_contains_availability_and_evidence (reports.tests.MonthlyAvailabilityReportTests.test_monthly_report_contains_availability_and_evidence) ... ok
+test_monthly_target_achievement (reports.tests.MonthlyAvailabilityReportTests.test_monthly_target_achievement) ... ok
+test_monthly_target_not_achieved (reports.tests.MonthlyAvailabilityReportTests.test_monthly_target_not_achieved) ... ok
+test_zero_eligible_operating_time_is_not_applicable (reports.tests.MonthlyAvailabilityReportTests.test_zero_eligible_operating_time_is_not_applicable) ... ok
+test_availability_percentage (reports.tests.SystemAvailabilityTests.test_availability_percentage) ... ok
+test_failure_is_recorded (reports.tests.SystemAvailabilityTests.test_failure_is_recorded) ... ok
+test_maintenance_failure_does_not_create_incident (reports.tests.SystemAvailabilityTests.test_maintenance_failure_does_not_create_incident) ... ok
+test_maintenance_period_is_excluded (reports.tests.SystemAvailabilityTests.test_maintenance_period_is_excluded) ... ok
+test_operating_hours (reports.tests.SystemAvailabilityTests.test_operating_hours) ... ok
+test_overlapping_incidents_are_not_double_counted (reports.tests.SystemAvailabilityTests.test_overlapping_incidents_are_not_double_counted) ... ok
+test_overlapping_maintenance_windows_are_not_double_counted (reports.tests.SystemAvailabilityTests.test_overlapping_maintenance_windows_are_not_double_counted) ... ok
+test_recovery_outside_operating_hours_resolves_incident (reports.tests.SystemAvailabilityTests.test_recovery_outside_operating_hours_resolves_incident) ... ok
+test_recovery_resolves_incident (reports.tests.SystemAvailabilityTests.test_recovery_resolves_incident) ... ok
 
 ----------------------------------------------------------------------
-Ran 14 tests in 17.681s
+Ran 116 tests in 13.749s
 
 OK
 Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...

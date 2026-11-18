@@ -1,38 +1,43 @@
 # Unit Test Report
 
-Date: 18 November 2026
-Project: Electronics Store Inventory Management System
+**Assessment date:** 18 November 2026
 
-## Test Execution Details
-- Framework: Django built-in test framework.
-- Command: `.venv\Scripts\python.exe manage.py test --verbosity 2`
-- Tests discovered: 103
-- Tests executed: 103
-- Result: OK
-- Failures: 0
-- Errors: 0
-- Execution time: 20.660 seconds.
-- Django system check: No issues identified.
+## Execution summary
 
-## Modules Tested
-- Accounts: Authentication, login, logout, password handling and roles.
-- Dashboard: Statistics, inventory counts and access control.
-- Inventory: Component addition, deletion, validation, duplicate IDs, search, pagination and data integrity.
-- Reports: Availability reporting, filters, CSV export, health checks and system availability.
+| Metric | Result |
+|---|---:|
+| Total automated tests | 116 |
+| Passed | 116 |
+| Failed | 0 |
+| Standard execution time | 13.961 seconds |
+| Django system check | No issues |
 
-## Overall Result
-The complete automated Django test suite executed successfully. All 103 discovered tests completed with an OK result. No test failures or errors were reported.
+## Test command
 
-## Scope and Limitations
-The suite includes Django test-client and database-interaction tests. This report covers the complete automated Django test suite and does not claim that every test is an isolated unit test.
+`.venv\Scripts\python.exe manage.py test`
 
-## Supporting Evidence
-Detailed test execution output: Unit_Test_Execution_Log.txt
+Detailed output: `Unit_Test_Execution_Log.txt`
 
-## Latest retest update — 18 November 2026
+## Areas covered
 
-- Total tests: **105**
-- Passed: **105**
-- Failed: **0**
-- Latest standard test run: **14.166 seconds**
-- Detailed execution log: `Unit_Test_Execution_Log.txt`
+- Authentication and login rate limiting.
+- Session security and expired-session handling.
+- Inventory listing, searching, addition and deletion.
+- Validation and data integrity.
+- Role-based authorization.
+- Dashboard and availability reporting.
+- Monthly availability calculations.
+- Inventory audit logging.
+- Performance and response-time checks.
+
+## Coverage results
+
+- Statement coverage: **93.90% (570/607)**
+- Branch coverage: **83.90% (99/118)**
+- Combined coverage: **92.28%**
+
+## Environment notes
+
+Automated tests use an isolated in-memory SQLite database.
+Coverage.py used its Python tracer because Windows Application Control blocked its C tracer.
+The configured MySQL database migration has not been independently verified because Windows blocked the MySQL driver DLL.

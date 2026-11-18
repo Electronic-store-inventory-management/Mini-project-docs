@@ -282,22 +282,27 @@ However, overall system validation should not be declared fully complete until t
 
 \- ../performance\_tests/results/us24\_final\_stats.csv
 
-## Latest retest update — 18 November 2026
+
+## Final merged validation — 18 November 2026
 
 ### Regression testing
-- Full suite: **105/105 tests passed**
-- Standard test execution time: **14.166 seconds**
-- No Django system-check issues.
+- Full merged suite: **116/116 tests passed**
+- Standard execution time: **13.961 seconds**
+- Django system check: no issues.
+- Detailed log: `Unit_Test_Execution_Log.txt`
 
 ### Latest coverage
-- Statement coverage: **96.40% (536/556)**
-- Branch coverage: **82.14% (92/112)**
-- Combined coverage.py metric: **94.01%**
+- Statement coverage: **93.90% (570/607)**
+- Branch coverage: **83.90% (99/118)**
+- Combined coverage.py metric: **92.28%**
 
-### SR-005 — Inventory audit logging
-- Implemented persistent audit records for successful component additions and deletions.
-- Records include the user, username snapshot, action, component ID and timestamp.
-- Two dedicated audit tests passed.
-- The new migration is `inventory/migrations/0003_inventoryauditlog.py`.
-- Migration was applied successfully in the isolated SQLite test database.
-- Application to the project's MySQL database has not yet been verified because Windows blocked the MySQL driver DLL.
+### US-21 audit logging
+- Uses the team's existing `inventory.models.AuditLog`.
+- Migration: `inventory/migrations/0003_auditlog.py`.
+- Three audit tests passed.
+- Includes successful add, rejected duplicate add, and successful delete scenarios.
+
+### Database verification limitation
+All migrations were applied successfully in the isolated in-memory SQLite test database during automated testing.
+
+The configured MySQL database migration has not been independently applied or verified because Windows Application Control blocks the MySQL driver DLL.

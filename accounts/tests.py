@@ -1,10 +1,14 @@
 
+from datetime import timedelta
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.test import TestCase, Client
 from django.urls import reverse
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -288,4 +292,31 @@ class AuthenticationTests(TestCase):
             lockout_key,
             True,
             timeout=900
+        )
+
+# US-23: Session security configuration
+    def test_session_expiry_is_configured_for_30_minutes(self):
+        self.assertEqual(settings.SESSION_COOKIE_AGE, 1800)
+        self.assertTrue(settings.SESSION_SAVE_EVERY_REQUEST)
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, "Lax")
+
+    # US-23: Expired sessions cannot access protected pages
+    def test_expired_session_cannot_access_protected_page(self):
+        self.client.force_login(self.staff_user)
+
+        session_key = self.client.session.session_key
+
+        Session.objects.filter(
+            session_key=session_key
+        ).update(
+            expire_date=timezone.now() - timedelta(seconds=1)
+        )
+
+        response = self.client.get(self.landing_url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response,
+            f"{self.login_url}?next={self.landing_url}"
         )

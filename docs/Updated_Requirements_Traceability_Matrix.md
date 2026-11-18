@@ -53,35 +53,35 @@
 | SR-002 | Expire inactive sessions after 30 minutes | TC-SEC-02 | `SESSION_COOKIE_AGE = 1800` and `SESSION_SAVE_EVERY_REQUEST = True`; timed expiry test pending — Partially verified |
 | SR-003 | Enforce server-side authentication and role checks | TC-SEC-03 | Protected views and role restriction tests — Passed for tested operations |
 | SR-004 | Input validation and SQL injection, XSS and CSRF protection | TC-SEC-04 | Input validation and CSRF test evidence exists; dedicated XSS and SQL injection tests pending — Partially verified |
-| SR-005 | Audit successful additions/deletions with user, component ID and timestamp; never log passwords | TC-SEC-05 | `InventoryAuditLog` model and two audit tests verify ADD/DELETE records in isolated SQLite; MySQL migration verification pending — Passed in automated tests |
+| SR-005 | Audit successful additions/deletions with user, component ID and timestamp; never log passwords | TC-SEC-05 | `AuditLog` model and three audit tests verify ADD/DELETE records in isolated SQLite; MySQL migration verification pending — Passed in automated tests |
 | SR-006 | Block further login after five failed attempts for 15 minutes | TC-SEC-06 | Five-failure lockout test and 900-second timeout configuration test — Passed for tested behaviour; elapsed-time expiry test pending |
 | SR-007 | Use HTTPS and TLS 1.2 or higher in network deployment | TC-SEC-07 | Deployment-level HTTPS/TLS evidence not available — Pending |
 
 ## 4. Sprint update — SR-005 audit logging
 
-The audit logging implementation adds `InventoryAuditLog` with:
+The project uses the team's existing `AuditLog` model.
 
-- User foreign key (nullable if the account is deleted).
-- Username snapshot.
+Audit records contain:
+- User foreign key.
 - Action (`ADD` or `DELETE`).
-- Component ID snapshot.
+- Component ID.
 - Automatically generated timestamp.
 
-The add and delete views create audit records within database transactions. Two dedicated tests passed, and the complete regression suite passed 105/105 tests.
+Migration: `inventory/migrations/0003_auditlog.py`
 
-Migration file: `inventory/migrations/0003_inventoryauditlog.py`.
+Three audit tests verify successful addition, rejected duplicate addition, and successful deletion. All three passed in the full 116-test suite.
 
-**Environment limitation:** The migration was applied when Django created its isolated in-memory SQLite test database. It has not been verified against the configured MySQL database because Windows Application Control blocked the MySQL driver DLL.
+**Environment limitation:** The migration was applied successfully in the isolated in-memory SQLite test database. Verification against the configured MySQL database remains pending because Windows Application Control blocks the MySQL driver DLL.
 
 ## 5. Latest regression and coverage evidence
 
 | Evidence | Latest result |
 |---|---:|
-| Full automated test suite | 105 passed, 0 failed |
+| Full automated test suite | 116 passed, 0 failed |
 | Standard test duration | 14.166 seconds |
-| Statement coverage | 96.40% (536/556) |
-| Branch coverage | 82.14% (92/112) |
-| Combined coverage.py metric | 94.01% |
+| Statement coverage | 93.90% (570/607) |
+| Branch coverage | 83.90% (99/118) |
+| Combined coverage.py metric | 92.28% |
 
 Supporting files are available in the project's `docs` folder:
 
