@@ -55,8 +55,7 @@
 | SR-004 | Input validation and SQL injection, XSS and CSRF protection | TC-SEC-04 | Input validation and CSRF test evidence exists; dedicated XSS and SQL injection tests pending — Partially verified |
 | SR-005 | Audit successful additions/deletions with user, component ID and timestamp; never log passwords | TC-SEC-05 | `AuditLog` model and three audit tests verify ADD/DELETE records in isolated SQLite; MySQL migration verification pending — Passed in automated tests |
 | SR-006 | Block further login after five failed attempts for 15 minutes | TC-SEC-06 | Five-failure lockout test and 900-second timeout configuration test — Passed for tested behaviour; elapsed-time expiry test pending |
-| SR-007 | Use HTTPS and TLS 1.2 or higher in network deployment | TC-SEC-07 | Deployment-level HTTPS/TLS evidence not available — Pending |
-
+| SR-007 | Use HTTPS and TLS 1.2 or higher in network deployment | TC-SEC-07 | N/A for the current evaluation environment, as the application is operated locally without network deployment. HTTPS/TLS enforcement is applicable when deployed on a network. |
 ## 4. Sprint update — SR-005 audit logging
 
 The project uses the team's existing `AuditLog` model.
