@@ -43,7 +43,7 @@
 | NFR-005 | Intuitive user interface | TC-UX-01 | Formal representative-user usability evaluation not recorded — Pending |
 | NFR-006 | Valid and consistent data | TC-REL-01 | Model validation, constraints and integrity tests — Passed |
 | NFR-007 | Support up to 10,000 records | TC-PERF-02 | 10,000-record performance test — Passed at tested scale |
-| NFR-008 | Modular design | TC-MNT-01 | Formal architecture review not recorded — Pending |
+| NFR-008 | Modular design | TC-MNT-01 | Architecture review completed . Separate Django applications, URL configurations, separation of responsibilities and reporting services verified. No circular inter-app imports identified in inspected source. Django system check passed — Passed, subject to reviewer acceptance. |
 
 ## 3. Security requirements
 
