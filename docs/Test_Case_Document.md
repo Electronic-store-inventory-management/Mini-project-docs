@@ -54,8 +54,7 @@ The MySQL migration for the new audit-log table has not yet been verified agains
 | TC-OPS-01 | NFR-004 | Test operating-hour availability and maintenance incident calculations | Availability calculations handle operating hours and maintenance correctly | Partially verified; one-month uptime evidence pending |
 | TC-UX-01 | NFR-005 | Evaluate usability with representative users | Usability feedback is collected and evaluated | Pending formal user evaluation |
 | TC-REL-01 | NFR-006 | Test validation, integrity constraints, and invalid data handling | Invalid or inconsistent records are rejected | Passed |
-| TC-MNT-01 | NFR-008 | Review modularity and maintainability against architecture criteria | Architecture review confirms modular design | Pending formal review |
-
+| TC-MNT-01 | NFR-008 | Review modularity and maintainability against architecture criteria | Architecture review confirms modular design | Architecture inspection completed .Four separate Django applications, individual URL configurations, separation of responsibilities and reporting services were verified. No circular inter-app imports identified in the inspected source. Django system check passed. |
 ### Performance evidence
 
 The recorded Locust performance run used 10 concurrent users and 10,000 component records over 120 seconds.
