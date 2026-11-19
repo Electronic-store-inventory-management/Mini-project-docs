@@ -195,4 +195,3 @@ class AuditLog(models.Model):
         ordering = ["-timestamp"]
         verbose_name = "Audit Log"
         verbose_name_plural = "Audit Logs"
-
