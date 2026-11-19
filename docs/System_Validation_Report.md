@@ -122,7 +122,7 @@ The automated test suite covers authentication, dashboard, inventory operations,
 
 | NFR-007 Handle increasing records | Load test with 10,000 records | Passed at tested scale |
 
-| NFR-008 Modular structure | Requires architecture review | Pending |
+| NFR-008 | Modular structure | Architecture review verified separate Django apps, routing, reporting services and application responsibilities. | Passed, subject to reviewer acceptance |
 
 
 
