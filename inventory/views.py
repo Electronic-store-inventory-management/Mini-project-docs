@@ -1,3 +1,4 @@
+
 from functools import wraps
 
 from django.contrib import messages
@@ -6,9 +7,11 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import F, Q
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
+
 from .forms import ComponentForm
 from .models import Component, AuditLog
+
 
 PAGE_SIZE = 50
 
@@ -19,11 +22,13 @@ def paginate_components(request, queryset):
 
 
 def admin_required(view_func):
-    """Allow only users with the ADMIN role or superuser status."""
+    """Allow only users with the ADMIN application role."""
+
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_admin_role:
             raise PermissionDenied
+
         return view_func(request, *args, **kwargs)
 
     return wrapper
@@ -43,7 +48,8 @@ def landing_page(request):
 
 @login_required
 def component_list(request):
-    # Search by component ID, name, or category.
+    """Display and search the component inventory."""
+
     query = request.GET.get("q", "").strip()
 
     components = Component.objects.all()
@@ -55,7 +61,6 @@ def component_list(request):
             | Q(category__icontains=query)
         )
 
-    # Paginate the filtered queryset.
     page_obj = paginate_components(request, components)
 
     return render(
@@ -67,6 +72,15 @@ def component_list(request):
             "page_obj": page_obj,
             "search_query": query,
             "model_missing": False,
+
+            # Admin can delete components.
+            "can_delete": request.user.is_admin_role,
+
+            # Admin and Manager can export CSV reports.
+            "can_export_csv": (
+                request.user.is_admin_role
+                or request.user.is_manager_role
+            ),
         },
     )
 
@@ -74,6 +88,8 @@ def component_list(request):
 @login_required
 @admin_required
 def add_component(request):
+    """Allow Admin users to add a component."""
+
     if request.method == "POST":
         form = ComponentForm(request.POST)
 
@@ -93,6 +109,7 @@ def add_component(request):
                     "component_id",
                     "Component with this Component Id already exists",
                 )
+
             else:
                 messages.success(
                     request,
@@ -123,6 +140,8 @@ def add_component(request):
 
 @login_required
 def availability(request):
+    """Display component availability."""
+
     page_obj = paginate_components(
         request,
         Component.objects.all(),
@@ -141,6 +160,8 @@ def availability(request):
 
 @login_required
 def low_stock(request):
+    """Display components at or below their minimum stock level."""
+
     components = Component.objects.filter(
         quantity__gt=0,
         quantity__lte=F("minimum_stock_level"),
@@ -162,6 +183,7 @@ def low_stock(request):
 @login_required
 def out_of_stock(request):
     """US-09: Identify components with zero available quantity."""
+
     components = Component.objects.filter(quantity=0)
 
     page_obj = paginate_components(request, components)
@@ -180,6 +202,8 @@ def out_of_stock(request):
 @login_required
 @admin_required
 def delete_component(request, component_id):
+    """Allow Admin users to delete a component after confirmation."""
+
     try:
         component = Component.objects.get(id=component_id)
 
@@ -200,6 +224,7 @@ def delete_component(request, component_id):
     if request.method == "POST":
         with transaction.atomic():
             deleted_component_id = component.component_id
+
             component.delete()
 
             AuditLog.objects.create(
@@ -207,6 +232,11 @@ def delete_component(request, component_id):
                 action="DELETE",
                 component_id=deleted_component_id,
             )
+
+        messages.success(
+            request,
+            "Component deleted successfully.",
+        )
 
         return render(
             request,

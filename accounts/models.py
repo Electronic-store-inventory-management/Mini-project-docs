@@ -1,3 +1,4 @@
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -5,10 +6,9 @@ from django.db import models
 class User(AbstractUser):
     """
     Custom User model for the Electronics Store Inventory Management System.
-    Implements SAD Section 3.6 data store specification:
-      User: id, username, password hash, role
-    and Section 3.4 component specification:
-      Auth Service checks role (Admin, Manager, Staff) before actions are allowed.
+
+    Implements role-based authorization for three application roles:
+    Admin, Manager and Staff.
     """
 
     class Role(models.TextChoices):
@@ -33,15 +33,15 @@ class User(AbstractUser):
 
     @property
     def is_admin_role(self):
-        """Returns True if user has Admin role or superuser status."""
-        return self.role == self.Role.ADMIN or self.is_superuser
+        """Returns True only for users assigned the Admin application role."""
+        return self.role == self.Role.ADMIN
 
     @property
     def is_manager_role(self):
-        """Returns True if user has Manager role."""
+        """Returns True only for users assigned the Manager application role."""
         return self.role == self.Role.MANAGER
 
     @property
     def is_staff_role(self):
-        """Returns True if user has Staff role."""
+        """Returns True only for users assigned the Staff application role."""
         return self.role == self.Role.STAFF
