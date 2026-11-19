@@ -1,10 +1,10 @@
+
 import csv
 from datetime import datetime, timedelta
 from io import StringIO
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
-from reports.services import generate_monthly_availability_report
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -20,10 +20,10 @@ from reports.models import (
 )
 from reports.services import (
     calculate_availability,
+    generate_monthly_availability_report,
     is_operating_time,
     record_availability_check,
 )
-
 
 User = get_user_model()
 
@@ -39,10 +39,11 @@ class AvailabilityReportTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
+        # Manager is used because Manager can export CSV.
         cls.user = User.objects.create_user(
             username="report_test_user",
             password="SecurePass123!",
-            role=User.Role.STAFF,
+            role=User.Role.MANAGER,
         )
 
         Component.objects.create(
@@ -199,6 +200,7 @@ class AvailabilityReportTests(TestCase):
 
                 self.client.force_login(user)
 
+                # All authenticated roles can view the report.
                 report_response = self.client.get(self.report_url)
 
                 self.assertEqual(
@@ -207,21 +209,29 @@ class AvailabilityReportTests(TestCase):
                     f"{role} should access the availability report.",
                 )
 
+                # Only Admin and Manager can export CSV.
                 csv_response = self.client.get(
                     self.report_url,
                     {"export": "csv"},
                 )
 
-                self.assertEqual(
-                    csv_response.status_code,
-                    200,
-                    f"{role} should be allowed to export CSV.",
-                )
+                if role == User.Role.STAFF:
+                    self.assertEqual(
+                        csv_response.status_code,
+                        403,
+                        "Staff should not be allowed to export CSV.",
+                    )
+                else:
+                    self.assertEqual(
+                        csv_response.status_code,
+                        200,
+                        f"{role} should be allowed to export CSV.",
+                    )
 
-                self.assertIn(
-                    "text/csv",
-                    csv_response["Content-Type"],
-                )
+                    self.assertIn(
+                        "text/csv",
+                        csv_response["Content-Type"],
+                    )
 
     def test_unauthenticated_user_cannot_export_csv(self):
         self.client.logout()
@@ -672,6 +682,7 @@ class AvailabilityCommandTests(TestCase):
             output.getvalue(),
         )
 
+
 # ============================================================
 # US-22: MONTHLY SYSTEM AVAILABILITY REPORT TESTS
 # ============================================================
@@ -695,13 +706,12 @@ class MonthlyAvailabilityReportTests(TestCase):
         start = datetime(2026, 11, 2, 9, 0, tzinfo=TEST_TZ)
 
         successful_check = AvailabilityCheck.objects.create(
-        is_available=True,
+            is_available=True,
         )
 
         AvailabilityCheck.objects.filter(
             pk=successful_check.pk
         ).update(checked_at=start)
-
 
         failed_check = AvailabilityCheck.objects.create(
             is_available=False,
@@ -813,6 +823,7 @@ class MonthlyAvailabilityReportTests(TestCase):
                         2026, 11
                     )
 
+    # Restored original test: incident ending exactly at month start.
     @override_settings(
         SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
         SYSTEM_MONTHLY_AVAILABILITY_TARGET=None,
@@ -853,18 +864,18 @@ class MonthlyAvailabilityReportTests(TestCase):
         self.assertEqual(report["incident_evidence"].count(), 0)
 
     @override_settings(
-            SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
-            SYSTEM_MONTHLY_AVAILABILITY_TARGET=95.0,
-            SYSTEM_OPERATING_HOURS={
-                0: None,
-                1: None,
-                2: None,
-                3: None,
-                4: None,
-                5: None,
-                6: None,
-            },
-        )
+        SYSTEM_AVAILABILITY_TIME_ZONE="Asia/Kolkata",
+        SYSTEM_MONTHLY_AVAILABILITY_TARGET=None,
+        SYSTEM_OPERATING_HOURS={
+            0: None,
+            1: None,
+            2: None,
+            3: None,
+            4: None,
+            5: None,
+            6: None,
+        },
+    )
     def test_zero_eligible_operating_time_is_not_applicable(self):
         with patch(
             "reports.services.timezone.now",

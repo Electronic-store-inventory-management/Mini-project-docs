@@ -1,8 +1,10 @@
+
 {% extends 'base.html' %}
 
 {% block title %}Component Inventory{% endblock %}
 
 {% block content %}
+
 <h2>Component Inventory</h2>
 
 <!-- Search Form -->
@@ -36,6 +38,17 @@
     {% endif %}
 </form>
 
+<!-- Export CSV: Admin and Manager only -->
+{% if can_export_csv %}
+    <a
+        href="{% url 'reports:availability' %}?export=csv{% if search_query %}&amp;q={{ search_query|urlencode }}{% endif %}"
+        class="btn btn-success"
+        style="margin-bottom:1rem;"
+    >
+        Export CSV
+    </a>
+{% endif %}
+
 <!-- Messages -->
 {% if messages %}
     {% for message in messages %}
@@ -64,6 +77,11 @@
                 <th>Supplier</th>
                 <th>Minimum Stock</th>
                 <th>Availability Status</th>
+
+                <!-- Delete column: Admin only -->
+                {% if can_delete %}
+                    <th>Actions</th>
+                {% endif %}
             </tr>
         </thead>
 
@@ -79,6 +97,18 @@
                     <td>{{ comp.supplier }}</td>
                     <td>{{ comp.minimum_stock_level }}</td>
                     <td>{{ comp.availability_status }}</td>
+
+                    <!-- Delete button: Admin only -->
+                    {% if can_delete %}
+                        <td>
+                            <a
+                                href="{% url 'inventory:delete_component' comp.id %}"
+                                class="btn btn-danger"
+                            >
+                                Delete
+                            </a>
+                        </td>
+                    {% endif %}
                 </tr>
             {% endfor %}
         </tbody>
